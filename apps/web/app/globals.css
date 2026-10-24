@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* Design tokens. Text/background pairs are chosen for WCAG AA contrast in both schemes. */
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #cbd5e1;
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #4338ca;
+  --accent-contrast: #ffffff;
+  --success: #15803d;
+  --warn: #92400e;
+  --warn-bg: #fef3c7;
+  --danger: #b91c1c;
+  --danger-bg: #fee2e2;
+  --info-bg: #e0e7ff;
+  --ok-bg: #dcfce7;
+  --chart-1: #4338ca;
+  --chart-2: #0e7490;
+  --chart-3: #b45309;
+  --chart-4: #be185d;
+  --chart-5: #15803d;
+  --chart-6: #6d28d9;
+  --chart-7: #475569;
+  --chart-8: #a16207;
+  --focus: #1d4ed8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1020;
+    --surface: #121a33;
+    --surface-2: #1a2447;
+    --border: #3a4670;
+    --text: #e8ecf8;
+    --muted: #aab4d2;
+    --accent: #a5b4fc;
+    --accent-contrast: #0b1020;
+    --success: #4ade80;
+    --warn: #fcd34d;
+    --warn-bg: #3b2a05;
+    --danger: #fca5a5;
+    --danger-bg: #3f1519;
+    --info-bg: #232c5c;
+    --ok-bg: #0f2e1b;
+    --chart-1: #a5b4fc;
+    --chart-2: #67e8f9;
+    --chart-3: #fbbf24;
+    --chart-4: #f9a8d4;
+    --chart-5: #86efac;
+    --chart-6: #c4b5fd;
+    --chart-7: #cbd5e1;
+    --chart-8: #fde68a;
+    --focus: #93c5fd;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accentfg: var(--accent-contrast);
+  --color-good: var(--success);
+  --color-warn: var(--warn);
+  --color-warnbg: var(--warn-bg);
+  --color-bad: var(--danger);
+  --color-badbg: var(--danger-bg);
+  --color-infobg: var(--info-bg);
+  --color-okbg: var(--ok-bg);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
