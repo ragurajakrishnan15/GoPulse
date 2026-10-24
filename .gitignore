@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+data/
+.pytest_cache/
+node_modules/
+.next/
+*.duckdb
+transformations/dbt/target/
+transformations/dbt/logs/
+
+# test artifacts at any depth
+test-results/
+playwright-report/
+.ruff_cache/

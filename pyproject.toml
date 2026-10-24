@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["FURB162", "UP031", "BLE001", "RUF059", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"databricks/notebooks/*" = ["F821"]  # `spark` and `dbutils` are injected by the Databricks runtime
