@@ -24,6 +24,6 @@ or as speaker notes for a live demo. The captions in the video follow the same o
 and every metric has a definition and a test."
 
 ## If someone asks
-* *Is it deployed?* Not yet - it runs as a containerised stack; the deploy workflow is written but disabled. No cloud runtimes or costs are claimed.
+* *Is it deployed?* Yes, on free tiers: the site and API on Vercel, the database on Supabase ([deployment.md](deployment.md)). The same 54 browser tests pass against the live site. A cold start (first request after a deploy) took ~2 s. CI-driven deploys are written but off. No Databricks run and no cloud cost is claimed.
 * *Did you run it on Databricks?* No. The Spark/Delta implementation is executed locally and must match the DuckDB pipeline row-for-row (tested); the Databricks job/notebooks are structure-checked only.
 * *Why DuckDB locally?* Same SQL, no cloud credentials, fast tests; Spark parity covers the cloud path.

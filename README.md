@@ -10,9 +10,10 @@ data-quality gates, orchestration, and a Spark/Delta implementation proven equiv
 
 | | |
 |---|---|
-| **Status** | Built and tested end to end; runs locally in three commands. **Not deployed** - there is no live URL, and no cloud run history, runtime or cost is claimed. |
-| **Verified** | 189 automated tests (103 Python, 27 unit, 54 end-to-end, 5 Spark parity) · **all 8 GitHub Actions jobs green** on Linux runners (the first run failed 4 of 8; causes found and fixed, see [ci.md](docs/ci.md)) · WCAG A/AA clean in light and dark · whole stack exercised in containers on a fresh database |
-| **Not verified** | the deploy workflow has never deployed (it is gated off) · nothing has run on a Databricks workspace · no load testing beyond the local benchmarks below |
+| **Live** | **Site: https://gopulse-web-nu.vercel.app** · **API: https://gopulse-api.vercel.app/docs** (free tiers: Vercel + Supabase; a cold start - e.g. the first request after a new deploy - took ~2 s) · [how it is deployed](docs/deployment.md) |
+| **Status** | Built and tested end to end; deployed on free tiers; also runs locally in three commands. No Databricks run history, runtime or cloud cost is claimed. |
+| **Verified** | 203 automated tests (117 Python, 27 unit, 54 end-to-end, 5 Spark parity) · **the same 54 browser tests pass against the live site** · live API smoke test and rate-limit burst test pass · **all 8 GitHub Actions jobs green** on Linux runners (the first run failed 4 of 8; causes found and fixed, see [ci.md](docs/ci.md)) · WCAG A/AA clean in light and dark · whole stack exercised in containers on a fresh database |
+| **Not verified** | deployments from GitHub Actions (off until a Vercel token is added) · uptime over time · nothing has run on a Databricks workspace · no real load testing |
 
 ![Overview](docs/media/screenshots/overview.png)
 
@@ -68,8 +69,8 @@ found a real crash, now fixed). Scaling is linear to 600k events in ~24 s. The s
 from documented token pricing and says so. Filters tell you when they don't apply instead of silently ignoring you.
 
 **Engineering judgement.** Least-privilege database roles (the dashboard role *cannot* write - tested). A demo endpoint that cannot accept commands,
-SQL, paths or credentials, is rate-limited and bounded. Tests that can actually fail (a dbt test is proven to catch a corrupted table). Honest scope:
-Databricks is implemented and parity-tested locally but not deployed.
+SQL, paths or credentials, is rate-limited (across instances, by salted hash - no IPs stored) and bounded. Tests that can actually fail (a dbt test is proven to catch a corrupted table), and
+the same browser suite is run against the live deployment. Honest scope: Databricks is implemented and parity-tested locally but not deployed.
 
 ## Architecture
 ![Data flow](docs/media/architecture_0.png)
@@ -123,18 +124,18 @@ docs/                  architecture, metrics, quality, API, CI, decisions, bench
 ## Decisions and trade-offs
 The reasoning behind the main choices is in [docs/decisions.md](docs/decisions.md): DuckDB locally with Spark parity instead of local Spark; one
 transaction per run; partition rebuilds instead of a fixed late-data lookback; retry only what retrying can fix; Delta promotion order (no multi-table
-transactions); one API worker until there is a shared rate limiter; deploy gated off by default.
+transactions); a PostgreSQL-backed rate limiter so limits hold across serverless instances (the API runs as a Vercel function; the single-worker container remains); CI deploys gated off by default.
 
 ## Known limitations
-* **Not deployed**; deployment is the one phase deliberately left out ([ci.md](docs/ci.md) has the gated workflow skeleton).
+* **Free-tier hosting:** a cold start is slower (the first request after a new deploy took ~2 s; the idle-timeout behaviour was not separately measured); Supabase pauses an idle project after a week (a scheduled keep-alive job prevents this, but GitHub disables scheduled jobs after 60 days of repository inactivity).
+* **Deploys are manual** (CLI); the CI deploy workflow is written but off until a Vercel token is configured.
 * **Databricks/Unity Catalog/Asset Bundle are untested on a real workspace**; the Spark code is verified locally only, and its validation is row-wise Python (fine for a demo, not at production volume).
 * Synthetic data is simple: no seasonality or real behavioural structure, so *the analytics are not findings* - they exist to exercise the pipeline.
 * "Plan" filter uses each user's *current* plan, not their plan at event time.
-* The demo rate limiter is in-memory (single API worker).
-* The deploy workflow is gated off (`DEPLOY_ENABLED` unset): on GitHub it runs after CI and correctly skips both deploy jobs, but no real deployment has ever been attempted.
+* The in-memory rate limiter is used only by the single-process container; the hosted deployment uses the shared PostgreSQL limiter.
 
 ## Documentation index
 [Architecture](docs/architecture.md) · [Metric definitions](docs/metrics.md) · [Event contract](docs/event_contract.md) · [Pipeline](docs/pipeline.md) ·
 [Data quality & failure demo](docs/quality.md) · [API](docs/api.md) · [Orchestration](docs/orchestration.md) · [CI/CD & containers](docs/ci.md) ·
-[Benchmarks](docs/benchmarks.md) · [Decisions](docs/decisions.md) · [Portfolio notes](docs/PORTFOLIO.md) · [Walkthrough](docs/walkthrough.md) ·
+[Deployment](docs/deployment.md) · [Benchmarks](docs/benchmarks.md) · [Decisions](docs/decisions.md) · [Portfolio notes](docs/PORTFOLIO.md) · [Walkthrough](docs/walkthrough.md) ·
 [Original brief & Definition of Done](docs/SPEC.md) · [Project plan](docs/PROJECT_PLAN.md)

@@ -45,7 +45,7 @@ flowchart LR
 The same production run is never scheduled twice. The Databricks side is **tested for parity locally but not deployed** (see
 [databricks/README.md](../databricks/README.md)).
 
-## 3. Runtime topology (docker compose)
+## 3. Runtime topology (docker compose; the hosted deployment is in [deployment.md](deployment.md))
 
 ```mermaid
 flowchart LR

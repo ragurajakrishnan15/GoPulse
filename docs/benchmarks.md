@@ -95,6 +95,47 @@ All pages are now at or below 0.07, and Pipelines improved ~8×.
 renders, so on a slow link the *content* appears later than these numbers suggest. CLS varies run to run (the probe saw 0 on one Overview load and 0.0985 on
 another before the fix) - treat it as a range. These are not Lighthouse scores.
 
+## 5. The deployed system
+Measured against the live deployment (Vercel Python function in Virginia → Supabase PostgreSQL 17 through the transaction pooler), from a developer machine
+over the public internet. Raw: [`api_live.json`](benchmarks/api_live.json), [`web_vitals_live.json`](benchmarks/web_vitals_live.json).
+
+**API** - 40 timed requests per endpoint after 10 warm-ups, one persistent connection:
+
+| Endpoint | p50 | p95 |
+|---|---:|---:|
+| `/health` (no database work) | 50.8 ms | 65.2 ms |
+| `/overview` | 47.7 ms | 62.8 ms |
+| `/metrics/timeseries` DAU / WAU / P95 | 46.1 / 46.4 / 47.7 ms | 127.3 / 57.8 / 60.0 ms |
+| `/funnels/activation`, `/retention/cohorts` | 47.2 / 47.7 ms | 58.4 / 62.2 ms |
+| `/agents/summary` | 47.0 ms | 59.9 ms |
+| `/pipelines/runs` (25 rows, 19.7 KB) | 47.6 ms | 67.4 ms |
+| `/quality/checks` (27 KB) | 47.4 ms | 57.9 ms |
+| `/catalog/models` | 48.0 ms | 72.7 ms |
+
+Read this carefully: every endpoint is ~47 ms because that is the **network round trip** - the do-nothing `/health` takes the same. Query time is a few
+milliseconds and not separable from client-side measurement at this resolution (locally the same queries took 3-17 ms, except the rolling-WAU series at ~46 ms). Concurrent load was deliberately small
+(6 clients × 8 requests; ~33-47 req/s, no errors) to avoid hammering a shared free service - this is **not** a capacity test.
+A new TCP+TLS connection per request costs ~150-300 ms (observed with `curl`). The first request after a fresh deploy took **1.9 s** (cold start: import
++ database connection); behaviour after a long idle period was not separately measured.
+
+**Demo run on the live service** - `POST /demo/run` executes the real pipeline inside the function: 1.1-1.5 s end to end, including the database writes.
+Rate-limit behaviour (verified live): a burst of 5 requests → 1 allowed, 4 × `429` with `Retry-After` in ~280 ms each.
+
+**Web** - same method as section 4 (headless Chromium, cold cache, median of 5), but over the real network to the deployed site:
+
+| Page | LCP | FCP | TTFB | CLS | Requests |
+|---|---:|---:|---:|---:|---:|
+| Overview | 276 ms | 276 ms | 133 ms | 0.0526 | 38 |
+| Pipelines | 388 ms | 340 ms | 128 ms | 0.0118 | 29 |
+| Data quality | 236 ms | 236 ms | 98 ms | 0.0229 | 30 |
+| Analytics | 292 ms | 292 ms | 131 ms | 0.0438 | 34 |
+| AI agents | 320 ms | 320 ms | 128 ms | 0.0219 | 32 |
+| Catalog | 284 ms | 284 ms | 133 ms | 0.0697 | 35 |
+| Catalog model | 260 ms | 260 ms | 104 ms | 0.0248 | 30 |
+
+Layout shift on the live site matches the local container to four decimals, so the CLS fixes carry over to production. LCP is the shell's first paint; the
+data (fetched client-side) arrives afterwards, so content is visible later than these numbers. These are not Lighthouse scores, and one client location is not a CDN-wide picture.
+
 ## What these numbers do not show
-Production data volumes, concurrent writers, real network latency, many-worker behaviour, Databricks/cloud performance or cost, or behaviour on real (non-synthetic) event
+Production data volumes, sustained or high concurrent load, uptime over time, idle cold-start behaviour, several client locations, Databricks/cloud performance or cost, or behaviour on real (non-synthetic) event
 distributions.

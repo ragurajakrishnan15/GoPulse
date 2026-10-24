@@ -15,7 +15,7 @@ Status legend: ⬜ not started · 🟡 in progress · ✅ done · ⏭ skipped by
 | 5 | Next.js website | Six views, filters, definitions, loading/empty/error states, responsive + a11y | 4d | ✅ |
 | 6 | Orchestration | Airflow DAG (deps, retries, bounded backfill); Databricks Workflow definition + PySpark notebooks | 2d | ✅ |
 | 7 | CI/CD + Docker | GitHub Actions, Dockerfiles, docker-compose full stack | 1.5d | ✅ |
-| 8 | Deployment | Vercel + API host + managed Postgres, HTTPS, clean-browser test | 1.5d | ⏭ skipped by choice |
+| 8 | Deployment | Vercel + API host + managed Postgres, HTTPS, clean-browser test | 1.5d | ✅ |
 | 9 | Portfolio polish | Diagrams, genuine screenshots, benchmarks (measured only), walkthrough, final README | 1.5d | ✅ |
 
 ## Phase 0 — Foundation

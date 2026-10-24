@@ -1,0 +1,84 @@
+{
+  "base": "https://gopulse-web-nu.vercel.app",
+  "throttling": "none on the client; real network to the deployed site",
+  "browser": "156.0.8078.4",
+  "results": [
+    {
+      "page": "overview",
+      "url": "/",
+      "runs": 5,
+      "lcp_ms": 276,
+      "fcp_ms": 276,
+      "ttfb_ms": 133,
+      "cls": 0.0526,
+      "js_kb_encoded": 332,
+      "requests": 38
+    },
+    {
+      "page": "pipelines",
+      "url": "/pipelines",
+      "runs": 5,
+      "lcp_ms": 388,
+      "fcp_ms": 340,
+      "ttfb_ms": 128,
+      "cls": 0.0118,
+      "js_kb_encoded": 332,
+      "requests": 29
+    },
+    {
+      "page": "quality",
+      "url": "/quality",
+      "runs": 5,
+      "lcp_ms": 236,
+      "fcp_ms": 236,
+      "ttfb_ms": 98,
+      "cls": 0.0229,
+      "js_kb_encoded": 332,
+      "requests": 30
+    },
+    {
+      "page": "analytics",
+      "url": "/analytics",
+      "runs": 5,
+      "lcp_ms": 292,
+      "fcp_ms": 292,
+      "ttfb_ms": 131,
+      "cls": 0.0438,
+      "js_kb_encoded": 332,
+      "requests": 34
+    },
+    {
+      "page": "agents",
+      "url": "/agents",
+      "runs": 5,
+      "lcp_ms": 320,
+      "fcp_ms": 320,
+      "ttfb_ms": 128,
+      "cls": 0.0219,
+      "js_kb_encoded": 332,
+      "requests": 32
+    },
+    {
+      "page": "catalog",
+      "url": "/catalog",
+      "runs": 5,
+      "lcp_ms": 284,
+      "fcp_ms": 284,
+      "ttfb_ms": 133,
+      "cls": 0.0697,
+      "js_kb_encoded": 332,
+      "requests": 35
+    },
+    {
+      "page": "catalog-model",
+      "url": "/catalog/fct_agent_interactions",
+      "runs": 5,
+      "lcp_ms": 260,
+      "fcp_ms": 260,
+      "ttfb_ms": 104,
+      "cls": 0.0248,
+      "js_kb_encoded": 332,
+      "requests": 30
+    }
+  ]
+}

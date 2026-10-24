@@ -56,8 +56,9 @@ into Postgres, and mart row counts equal DuckDB.
 - Fixed workflow: generate a 100-user synthetic batch → run the real pipeline in a throw-away temp dir/DuckDB →
   record as `demo-live`. Published metrics are never modified.
 - Limits: 3/min and 20/hour per client IP, 100/hour globally, one run at a time, history capped at 200.
-  The limiter is in-memory (single process); put a shared limiter (Redis/edge) in front for multi-instance hosting,
-  and set the proxy's trusted client-IP header before relying on per-IP limits.
+  Two backends: **memory** (default; correct for one process, used by the Docker/compose stack) and **postgres** (`RATE_LIMIT_BACKEND=postgres`, used on the
+  hosted serverless deployment): state lives in `serving.demo_hits`, checks are serialised by an advisory lock, the quota hit is committed before the work, and clients
+  are stored only as salted SHA-256 hashes (`RATE_LIMIT_SALT`; no raw IPs). `X-Forwarded-For` is trusted only with `TRUST_PROXY_HEADERS=1`, i.e. behind a proxy that overwrites it.
 - Uses a separate Postgres role that can only INSERT into `pipeline_runs`, `pipeline_task_runs`, `quality_check_results`.
 
 ## Security notes

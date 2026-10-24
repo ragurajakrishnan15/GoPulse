@@ -54,10 +54,11 @@ Activation, retention and conversion are cohort-based with complete-window eligi
 * Delivered a WCAG A/AA-clean (light and dark) dashboard with explicit metric definitions, stale/empty/error states and least-privilege API roles; containerised the stack and wrote CI workflows (linted; commands run locally).
 
 ## What *not* to claim
-Live uptime, a deployed URL, Databricks or cloud execution, cloud cost, real-user impact, or that the synthetic analytics are findings.
+Uptime or availability figures (it is a free-tier demo; the first request after a deploy took ~2 s and idle behaviour was not measured; none were measured over time), Databricks or Databricks-cloud execution, cloud cost, real-user impact, or that the synthetic analytics are findings. You *can* say it is deployed (Vercel + Supabase) and that the same browser test suite passes against the live site.
 
 ## Before sharing publicly
 * Done: pushed to https://github.com/ragurajakrishnan15/GoPulse; CI is green (the first run found four environment-specific defects - a good story: see [ci.md](ci.md)).
 * Dependabot is configured for monthly, grouped, minor/patch-only updates (the first weekly setup flooded the repo with 14 PRs); merge its PRs when CI is green.
 * Choose a licence (none is included).
-* If you deploy later, follow the gated workflow in [ci.md](ci.md) and add the live link to the README.
+* Deployed: https://gopulse-web-nu.vercel.app ([deployment.md](deployment.md)). The password you shared in chat for the database owner should be rotated in Supabase (nothing live depends on it) - see the rotation steps in deployment.md.
+* Optional: add a CI deploy token (see deployment.md) so pushes to `main` deploy automatically.

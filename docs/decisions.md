@@ -44,3 +44,9 @@ The API runs a single uvicorn worker because the demo-run limiter is in-memory; 
 
 ## D15 - Deploy gate
 Deployment runs only from `main`, only after CI succeeded on that commit, and only when `DEPLOY_ENABLED=true`, through a protected `production` environment. Default is off.
+
+## D16 - Hosting: Vercel for site and API, Supabase for PostgreSQL (supersedes the plan's Render API host)
+Chosen so the whole system can be deployed and redeployed from one CLI on free tiers. Consequences handled in code: the rate limiter and the "one run at a time" guard moved into PostgreSQL (advisory locks, salted-hash client identity); pools are lazy; connections are pooler-safe; the API runs on Python 3.12 (also tested in CI). The runtime uses Supabase's transaction pooler because Vercel is IPv4-only; admin work uses the direct connection. D14's single-worker/in-memory choice still applies to the Docker image.
+
+## D17 - Secrets never go through chat, the repo or the web tier
+Deployment secrets live in a git-ignored `.env.deploy`; Vercel receives them as write-only sensitive variables; the running API uses two generated, least-privilege database roles (never the owner credential), so the owner password can be rotated without touching production. (When a secret was nevertheless pasted into chat, the safeguard was exactly this: rotate it; nothing live depends on it.)

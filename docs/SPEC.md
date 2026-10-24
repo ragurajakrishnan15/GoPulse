@@ -556,11 +556,11 @@ Before enabling scheduled cloud compute, check current pricing, automatic termin
 
 ### Public links to add after deployment
 
-- **Live demo:** none - the project is not deployed (the deployment phase was skipped by choice); run it locally with docker compose
+- **Live demo:** https://gopulse-web-nu.vercel.app (API: https://gopulse-api.vercel.app/docs) - free tiers, see [deployment.md](deployment.md)
 - **GitHub repository:** https://github.com/ragurajakrishnan15/GoPulse
 - **Walkthrough video:** [docs/media/walkthrough.webm](media/walkthrough.webm)
 
-The repository and video links are real; there is no live-demo link.
+All three links are real.
 
 ---
 
@@ -596,9 +596,9 @@ Status as of Phase 9. A box is ticked only where it was verified; evidence is in
 | [x] | API endpoints return validated, consistent data | 53 API tests against PostgreSQL (validation, reconciliation, permissions) |
 | [x] | All six website views work on desktop and mobile | 54 Playwright tests incl. axe WCAG A/AA (light + dark) and 375 px layout |
 | [x] | GitHub Actions runs required checks successfully | all 8 jobs green on GitHub runners ([run 40053040915](https://github.com/ragurajakrishnan15/GoPulse/actions/runs/40053040915)); the first run failed 4 jobs, fixed - see [ci.md](ci.md) |
-| [ ] | Public website and backend use HTTPS | **not deployed** (deployment phase skipped by choice) |
+| [x] | Public website and backend use HTTPS | both served over HTTPS by Vercel; `smoke_api.py` and the 54-test browser suite pass against the live URLs ([deployment.md](deployment.md)) |
 | [x] | Demo data and any seeded execution history are clearly labeled | banner on every page; `source` label on every run; "Estimate" badges |
-| [ ] | README contains architecture, setup, metric definitions, and genuine live links | architecture, setup, metrics: yes. **Live links: none exist** |
+| [x] | README contains architecture, setup, metric definitions, and genuine live links | all present; live links are the deployed site, API docs, repository and walkthrough |
 | [x] | No credentials or proprietary data are committed | scan of every file git would add: no keys/tokens, only placeholder values; `.env` ignored |
 
 ## Portfolio Presentation
