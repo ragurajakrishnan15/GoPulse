@@ -1,0 +1,100 @@
+version: 2
+
+sources:
+  - name: lakehouse
+    description: >
+      Tables produced by the Python pipeline (Bronze/Silver/Gold). dbt does not rebuild them; it declares, tests,
+      documents and extends them. All data is synthetic.
+    schema: main
+    tables:
+      - name: silver_events
+        description: Cleaned, deduplicated events (one row per event_id).
+        columns:
+          - name: event_id
+            tests: [unique, not_null]
+          - name: user_id
+            tests: [not_null]
+          - name: event_name
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: [user_signed_up, onboarding_started, onboarding_completed, feature_opened,
+                             suggestion_shown, suggestion_accepted, agent_started, agent_completed, agent_failed,
+                             subscription_started]
+      - name: raw_users
+      - name: raw_accounts
+      - name: raw_features
+      - name: quarantine_events
+      - name: quality_check_results
+      - name: pipeline_runs
+        description: One row per pipeline run. Freshness here means "the pipeline ran recently".
+        loaded_at_field: ended_at
+        config:
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 72, period: hour}
+
+      # ---- Gold (built by pipelines/jobs/gold.py) ----
+      - name: dim_users
+        columns:
+          - name: user_id
+            tests: [unique, not_null]
+          - name: account_id
+            tests:
+              - relationships:
+                  arguments: {to: "source('lakehouse', 'dim_accounts')", field: account_id}
+          - name: account_tier
+            tests:
+              - accepted_values:
+                  arguments: {values: [free, pro, team, enterprise, no_account]}
+      - name: dim_accounts
+        columns:
+          - name: account_id
+            tests: [unique, not_null]
+          - name: tier
+            tests:
+              - accepted_values:
+                  arguments: {values: [free, pro, team, enterprise]}
+      - name: dim_features
+        columns:
+          - name: feature_id
+            tests: [unique, not_null]
+      - name: fct_product_events
+        columns:
+          - name: event_id
+            tests: [unique, not_null]
+          - name: user_id
+            tests:
+              - not_null
+              - relationships:
+                  arguments: {to: "source('lakehouse', 'dim_users')", field: user_id}
+          - name: feature_id
+            tests:
+              - relationships:
+                  arguments: {to: "source('lakehouse', 'dim_features')", field: feature_id}
+                  config: {where: "feature_id is not null"}
+      - name: fct_agent_interactions
+        columns:
+          - name: execution_id
+            tests: [unique, not_null]
+          - name: status
+            tests:
+              - accepted_values:
+                  arguments: {values: [success, failed, cancelled]}
+          - name: duration_ms
+            tests:
+              - not_null
+      - name: fct_daily_user_activity
+        columns:
+          - name: user_id
+            tests:
+              - relationships:
+                  arguments: {to: "source('lakehouse', 'dim_users')", field: user_id}
+      - name: fct_user_lifecycle
+        columns:
+          - name: user_id
+            tests: [unique, not_null]
+      - name: fct_account_adoption
+      - name: agg_product_metrics_daily
+      - name: agg_activation_funnel_daily
+      - name: agg_retention_cohorts

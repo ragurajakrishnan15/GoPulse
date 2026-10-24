@@ -1,0 +1,9 @@
+gopulse:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      # Run from the repo root:  dbt build --project-dir transformations/dbt --profiles-dir transformations/dbt
+      path: "{{ env_var('GOPULSE_DB', 'data/gopulse.duckdb') }}"
+      schema: main
+      threads: 1

@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: mart_kpi_daily
+    description: Daily whole-population KPIs. DAU/WAU use qualifying activity; success rate excludes unfinished runs.
+    columns:
+      - name: date
+        tests: [unique, not_null]
+      - name: dau
+        tests: [non_negative]
+      - name: agent_success_rate
+        tests: [rate_between_0_and_1]
+      - name: agent_retry_rate
+        tests: [rate_between_0_and_1]
+  - name: mart_activation_rates
+    description: Activation (7d) and conversion (30d) rates per signup date and tier; NULL until windows complete.
+    columns:
+      - name: activation_rate
+        tests: [rate_between_0_and_1]
+      - name: conversion_rate
+        tests: [rate_between_0_and_1]
+  - name: mart_retention_weekly
+    description: Weekly-cohort retention for day 1/7/14/30 using only elapsed windows.
+    columns:
+      - name: day_n
+        tests:
+          - accepted_values:
+              arguments: {values: [1, 7, 14, 30], quote: false}
+      - name: retention_rate
+        tests: [rate_between_0_and_1]
+  - name: mart_agent_summary
+    description: Agent execution outcomes, latency and ESTIMATED cost per agent type.
+    columns:
+      - name: agent_type
+        tests: [unique, not_null]
+      - name: success_rate
+        tests: [rate_between_0_and_1]
+  - name: mart_agent_failures
+    columns:
+      - name: failure_category
+        tests: [unique]
+      - name: share_of_failures
+        tests: [rate_between_0_and_1]
+  - name: mart_feature_adoption_weekly
+    columns:
+      - name: adoption_rate
+        tests: [rate_between_0_and_1]
+  - name: mart_account_adoption
+    description: Account-level adoption by month and tier.
+    columns:
+      - name: adoption_rate
+        tests: [rate_between_0_and_1]
+  - name: mart_quality_summary
+    description: Latest-run quality check roll-up.
