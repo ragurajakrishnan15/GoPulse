@@ -121,7 +121,9 @@ def run_dbt(cfg: Config) -> dict:
     maybe_inject_chaos("run_dbt")
     out = run_dbt_build(cfg.db)
     if out["returncode"] != 0:
-        raise NonRetryableError(f"dbt build failed: {out['stdout_tail'][-300:]}")
+        # dbt reports its errors on stdout and Python-level noise on stderr: keep the end of both.
+        detail = f"{out['stdout_tail'].strip()[-350:]} | stderr: {out['stderr_tail'].strip()[-150:]}"
+        raise NonRetryableError(f"dbt build failed (exit {out['returncode']}): {detail or 'no output captured'}")
     return {"tests_persisted": persist_dbt_results(cfg.db, out["results"]), "nodes": len(out["results"])}
 
 

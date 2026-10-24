@@ -19,14 +19,24 @@ from pipelines.jobs.lakehouse import DEFAULT_DB, connect
 DBT_DIR = Path("transformations/dbt")
 
 
+def dbt_target_dirs(project_dir: Path = DBT_DIR) -> tuple[Path, Path]:
+    """(target dir, log dir). GOPULSE_DBT_TARGET_DIR relocates both - needed when the repo is mounted read-only or owned by
+    another user (containers, CI): dbt otherwise exits silently with code 2 because it cannot create ./target and ./logs."""
+    base = os.environ.get("GOPULSE_DBT_TARGET_DIR")
+    return (Path(base) / "target", Path(base) / "logs") if base else (project_dir / "target", project_dir / "logs")
+
+
 def run_dbt_build(db_path: Path | str = DEFAULT_DB, project_dir: Path = DBT_DIR, *, select: str | None = None) -> dict:
     env = {**os.environ, "GOPULSE_DB": str(Path(db_path).resolve()), "DBT_SEND_ANONYMOUS_USAGE_STATS": "false"}
     # GOPULSE_DBT_PYTHON lets orchestrators run dbt from an isolated virtualenv (avoids dependency clashes with Airflow).
     cmd = [os.environ.get("GOPULSE_DBT_PYTHON", sys.executable), "-m", "dbt.cli.main", "build", "--project-dir", str(project_dir), "--profiles-dir", str(project_dir)]
     if select:
         cmd += ["--select", select]
+    target_dir, log_dir = dbt_target_dirs(project_dir)
+    if os.environ.get("GOPULSE_DBT_TARGET_DIR"):
+        cmd += ["--target-path", str(target_dir), "--log-path", str(log_dir)]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True, check=False)
-    results_file = project_dir / "target" / "run_results.json"
+    results_file = target_dir / "run_results.json"
     results = json.loads(results_file.read_text(encoding="utf-8"))["results"] if results_file.exists() else []
     return {"returncode": proc.returncode, "results": results, "stdout_tail": proc.stdout[-1500:], "stderr_tail": proc.stderr[-500:]}
 

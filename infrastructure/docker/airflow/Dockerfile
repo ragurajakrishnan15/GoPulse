@@ -5,7 +5,9 @@ USER airflow
 RUN pip install --no-cache-dir "duckdb>=1.1,<3" "jsonschema>=4.21,<5" "pyyaml>=6,<7" "psycopg[binary,pool]>=3.2,<4"
 # dbt in an isolated virtualenv: the usual way to keep dbt's pins away from Airflow's.
 RUN python -m venv /home/airflow/dbt-venv && /home/airflow/dbt-venv/bin/pip install --no-cache-dir "dbt-duckdb>=1.9,<2"
+# dbt writes ./target and ./logs; the mounted repo may be read-only or owned by another user (CI), so relocate them.
 ENV GOPULSE_DBT_PYTHON=/home/airflow/dbt-venv/bin/python \
+    GOPULSE_DBT_TARGET_DIR=/tmp/gopulse-dbt \
     PYTHONPATH=/opt/gopulse \
     AIRFLOW__CORE__DAGS_FOLDER=/opt/gopulse/orchestration/airflow/dags \
     AIRFLOW__CORE__LOAD_EXAMPLES=False \
