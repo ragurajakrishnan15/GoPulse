@@ -1,0 +1,99 @@
+# Databricks Asset Bundle for the GoPulse daily job.
+#
+# STATUS: validated structurally by quality/unit_tests/test_databricks_bundle.py. NOT deployed or executed on a
+# Databricks workspace by this project. The PySpark/Delta code the notebooks call IS executed and parity-tested locally
+# (databricks/tests/test_spark_parity.py).
+#
+#   databricks bundle validate -t dev
+#   databricks bundle deploy   -t dev
+#   databricks bundle run gopulse_daily -t dev --params batch_path=/Volumes/gopulse/landing/events/2026-01-05
+bundle:
+  name: gopulse
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds the bronze / silver / gold_staging / gold schemas
+    default: gopulse
+  node_type_id:
+    description: Cloud-specific worker type (AWS i3.xlarge, Azure Standard_DS3_v2, ...)
+    default: i3.xlarge
+  alert_email:
+    description: Recipient of failure notifications
+    default: ""
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+resources:
+  jobs:
+    gopulse_daily:
+      name: gopulse_daily
+      max_concurrent_runs: 1            # one run at a time: Silver/Gold rebuilds are order-sensitive
+      queue:
+        enabled: true
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED            # enable deliberately, after checking cost and permissions
+      email_notifications:
+        on_failure: ["${var.alert_email}"]
+      parameters:
+        - name: batch_path
+          default: ""
+      job_clusters:
+        - job_cluster_key: small
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: ${var.node_type_id}
+            num_workers: 1              # job clusters terminate when the run ends (no idle spend)
+            data_security_mode: SINGLE_USER
+            spark_conf:
+              spark.sql.session.timeZone: UTC
+      tasks:
+        - task_key: ingest
+          job_cluster_key: small
+          max_retries: 2                # recoverable infra errors only; a quality-gate failure is not worth retrying
+          min_retry_interval_millis: 60000
+          retry_on_timeout: true
+          notebook_task:
+            notebook_path: ./notebooks/01_ingest.py
+            base_parameters:
+              catalog: ${var.catalog}
+              batch_path: "{{job.parameters.batch_path}}"
+        - task_key: silver
+          depends_on: [{ task_key: ingest }]
+          job_cluster_key: small
+          max_retries: 0
+          notebook_task:
+            notebook_path: ./notebooks/02_silver.py
+            base_parameters:
+              catalog: ${var.catalog}
+              batch_id: "{{tasks.ingest.values.batch_id}}"
+              input: "{{tasks.ingest.values.input}}"
+              accepted: "{{tasks.ingest.values.accepted}}"
+              quarantined: "{{tasks.ingest.values.quarantined}}"
+        - task_key: gold
+          depends_on: [{ task_key: silver }]
+          job_cluster_key: small
+          max_retries: 0
+          notebook_task:
+            notebook_path: ./notebooks/03_gold.py
+            base_parameters:
+              catalog: ${var.catalog}
+        - task_key: quality_publish
+          depends_on: [{ task_key: gold }]
+          job_cluster_key: small
+          max_retries: 0
+          notebook_task:
+            notebook_path: ./notebooks/04_quality_publish.py
+            base_parameters:
+              catalog: ${var.catalog}
+              input: "{{tasks.ingest.values.input}}"
+              accepted: "{{tasks.ingest.values.accepted}}"
+              quarantined: "{{tasks.ingest.values.quarantined}}"
+              kept_from_batch: "{{tasks.silver.values.kept_from_batch}}"
+              duplicates: "{{tasks.silver.values.duplicates}}"
+              silver_total: "{{tasks.silver.values.silver_total}}"
+              gold_counts: "{{tasks.gold.values.gold_counts}}"
