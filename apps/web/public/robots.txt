@@ -1,0 +1,3 @@
+# GoPulse is a synthetic-data demo; nothing here is sensitive.
+User-agent: *
+Allow: /

@@ -27,8 +27,22 @@ for (const p of PAGES) {
     test("has no horizontal page scroll on a phone", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 800 });
       await gotoReady(page, p.path);
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-      expect(overflow).toBeLessThanOrEqual(1);
+      const { overflow, culprits } = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const culprits: string[] = [];
+        document.querySelectorAll("body *").forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.right <= vw + 1) return;
+          for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+            const ox = getComputedStyle(a).overflowX;
+            if (ox === "auto" || ox === "scroll" || ox === "hidden") return; // clipped by a scroll container: not a page overflow
+          }
+          culprits.push(`${el.tagName.toLowerCase()}.${String(el.className).slice(0, 50)} right=${Math.round(r.right)}`);
+        });
+        return { overflow: document.documentElement.scrollWidth - vw, culprits: culprits.slice(0, 5) };
+      });
+      // On failure the message names the offending elements (fonts differ between OSes, so this can only show up on CI).
+      expect(overflow, `page scrolls horizontally by ${overflow}px; elements past the viewport: ${culprits.join(" | ")}`).toBeLessThanOrEqual(1);
       await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     });
   });

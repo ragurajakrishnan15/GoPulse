@@ -72,9 +72,11 @@ function DemoRunPanel({ onDone }: { onDone: () => void }) {
         dashboard numbers. Rate limited.
       </p>
       <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); if (seedOk && !busy) void run(); }}>
-        <div>
+        {/* A <select> is as wide as its longest option; in wider fonts (Linux default) that exceeded a 375px phone and
+            overflowed the page. min-w-0 + max-w-full let it shrink to the available width. */}
+        <div className="min-w-0 max-w-full">
           <label htmlFor={`${uid}-sc`} className="mb-1 block text-xs font-medium text-muted">Scenario</label>
-          <select id={`${uid}-sc`} className={selectCls} value={scenario} onChange={(e) => setScenario(e.target.value)}>
+          <select id={`${uid}-sc`} className={`${selectCls} w-full max-w-full`} value={scenario} onChange={(e) => setScenario(e.target.value)}>
             <option value="clean">Clean batch</option>
             <option value="light_defects">Light defects (~3%) - published with warnings</option>
             <option value="heavy_defects">Heavy defects (~40%) - blocked by quality gate</option>
