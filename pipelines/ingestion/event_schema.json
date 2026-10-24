@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gopulse/event/v1",
+  "title": "GoPulse product event v1",
+  "type": "object",
+  "required": ["event_id", "event_name", "event_timestamp", "ingested_at", "user_id", "session_id", "properties"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {"type": "string", "pattern": "^evt_[0-9a-f]{16}$"},
+    "event_name": {"type": "string"},
+    "event_timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"},
+    "ingested_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"},
+    "user_id": {"type": "string", "pattern": "^usr_\\d{6}$"},
+    "account_id": {"type": ["string", "null"], "pattern": "^acc_\\d{4}$"},
+    "session_id": {"type": "string", "pattern": "^ses_[0-9a-f]{12}$"},
+    "feature_id": {"type": ["string", "null"], "pattern": "^feat_[a-z_]+$"},
+    "schema_version": {"type": "integer", "const": 1},
+    "properties": {
+      "type": "object",
+      "properties": {
+        "execution_id": {"type": "string"},
+        "agent_type": {"type": "string"},
+        "status": {"enum": ["success", "failed", "cancelled"]},
+        "failure_category": {"type": ["string", "null"]},
+        "duration_ms": {"type": "integer"},
+        "retry_count": {"type": "integer"},
+        "input_tokens": {"type": "integer"},
+        "output_tokens": {"type": "integer"},
+        "cost_usd_estimate": {"type": "number"},
+        "plan": {"type": "string"},
+        "suggestion_id": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  }
+}
