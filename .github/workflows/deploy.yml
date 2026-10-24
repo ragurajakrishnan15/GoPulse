@@ -1,0 +1,97 @@
+name: Deploy
+
+# Deploys ONLY from `main`, ONLY after the CI workflow succeeded on that exact commit, and ONLY when the repository
+# variable DEPLOY_ENABLED is "true" (off by default, so forks and fresh clones never try to deploy).
+# Credentials live in the `production` environment's secrets (add required reviewers there for a manual gate).
+# Target-specific setup is documented in docs/deployment.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false      # never interrupt a deployment half-way
+
+jobs:
+  gate:
+    name: Check deploy preconditions
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.decide.outputs.go }}
+      sha: ${{ steps.decide.outputs.sha }}
+    steps:
+      - id: decide
+        env:
+          ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          EVENT: ${{ github.event_name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          REF: ${{ github.ref }}
+        run: |
+          go=false
+          if [ "$ENABLED" = "true" ]; then
+            if [ "$EVENT" = "workflow_run" ] && [ "$CONCLUSION" = "success" ]; then go=true; fi
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "$REF" = "refs/heads/main" ]; then go=true; fi
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+          echo "sha=${RUN_SHA:-$GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "deploy: $go (enabled=$ENABLED event=$EVENT conclusion=$CONCLUSION)"
+
+  web:
+    name: Deploy web (Vercel)
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build and deploy the prebuilt output
+        working-directory: apps/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          NEXT_PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}      # inlined into the browser bundle at build time
+        run: |
+          npm i -g vercel@latest
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          vercel build --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+
+  api:
+    name: Deploy API (container host deploy hook)
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Trigger the host to build and roll out this commit
+        env:
+          HOOK: ${{ secrets.API_DEPLOY_HOOK_URL }}
+          SHA: ${{ needs.gate.outputs.sha }}
+        run: |
+          test -n "$HOOK" || { echo "API_DEPLOY_HOOK_URL secret is not set"; exit 1; }
+          curl -fsS -X POST "${HOOK}&ref=${SHA}"
+      - name: Wait for the API to be healthy
+        env:
+          URL: ${{ vars.PUBLIC_API_URL }}
+        run: |
+          for _ in $(seq 1 40); do
+            curl -fsS "$URL/health" && exit 0
+            sleep 15
+          done
+          echo "API did not become healthy"; exit 1

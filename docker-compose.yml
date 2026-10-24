@@ -1,0 +1,86 @@
+# GoPulse local stack.
+#
+#   cp .env.example .env                       # local-only values
+#   docker compose up -d --build               # postgres + api + web
+#   docker compose --profile seed run --rm seed   # generate data, run pipeline + dbt, publish to Postgres (once; re-runnable)
+#   open http://localhost:3000                 # API docs: http://localhost:8000/docs
+#
+# Only `postgres` is needed for local development without containers (see docs/api.md).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gopulse}
+      POSTGRES_USER: ${POSTGRES_USER:-gopulse_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      API_RO_PASSWORD: ${API_RO_PASSWORD:?set API_RO_PASSWORD in .env}
+      API_RW_PASSWORD: ${API_RW_PASSWORD:?set API_RW_PASSWORD in .env}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gopulse_owner} -d ${POSTGRES_DB:-gopulse}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api/Dockerfile
+    environment:
+      DATABASE_URL_RO: postgresql://gopulse_api_ro:${API_RO_PASSWORD}@postgres:5432/${POSTGRES_DB:-gopulse}
+      DATABASE_URL_RW: postgresql://gopulse_api_rw:${API_RW_PASSWORD}@postgres:5432/${POSTGRES_DB:-gopulse}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DEMO_RUNS_PER_MINUTE: ${DEMO_RUNS_PER_MINUTE:-3}
+      DEMO_RUNS_PER_HOUR: ${DEMO_RUNS_PER_HOUR:-20}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true            # the demo run writes only to a temp dir
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  web:
+    build:
+      context: apps/web
+      dockerfile: ../../infrastructure/docker/web/Dockerfile
+      args:
+        # Baked into the browser bundle: must be the API URL as seen from the visitor's browser.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  seed:
+    profiles: ["seed"]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/pipeline/Dockerfile
+    environment:
+      DATABASE_URL_OWNER: postgresql://${POSTGRES_USER:-gopulse_owner}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gopulse}
+      GOPULSE_USERS: ${GOPULSE_USERS:-500}
+      GOPULSE_SEED: ${GOPULSE_SEED:-42}
+      GOPULSE_DEFECT_RATE: ${GOPULSE_DEFECT_RATE:-0.02}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

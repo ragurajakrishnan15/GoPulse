@@ -1,0 +1,232 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"        # nightly: catches dependency drift and runs the heavy suites
+  workflow_dispatch:
+
+# Least privilege: CI only needs to read the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "24"
+  # Throw-away credentials for the CI-only Postgres service container (never used anywhere else).
+  POSTGRES_DB: gopulse
+  POSTGRES_USER: gopulse_owner
+  POSTGRES_PASSWORD: ci-owner-pw
+  API_RO_PASSWORD: ci-ro-pw
+  API_RW_PASSWORD: ci-rw-pw
+
+jobs:
+  python:
+    name: Python - lint, unit, pipeline, dbt, orchestration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Lint
+        run: ruff check .
+      - name: Documentation links resolve
+        run: python scripts/check_docs.py
+      - name: Tests (generator, validation, pipeline, quality gate, dbt, failure demo, orchestration)
+        run: pytest quality -q
+
+  api:
+    name: API - integration tests against PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gopulse_owner -d gopulse"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL_OWNER: postgresql://gopulse_owner:ci-owner-pw@localhost:5432/gopulse
+      DATABASE_URL_RO: postgresql://gopulse_api_ro:ci-ro-pw@localhost:5432/gopulse
+      DATABASE_URL_RW: postgresql://gopulse_api_rw:ci-rw-pw@localhost:5432/gopulse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Create the least-privilege API roles (same script the local container uses)
+        env:
+          PGHOST: localhost
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        run: sh infrastructure/docker/postgres/init.sh
+      - name: API tests
+        run: pytest services -q
+
+  web:
+    name: Web - typecheck, lint, unit tests, production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    name: End-to-end - Playwright (accessibility, responsive, flows)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gopulse_owner -d gopulse"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL_OWNER: postgresql://gopulse_owner:ci-owner-pw@localhost:5432/gopulse
+      DATABASE_URL_RO: postgresql://gopulse_api_ro:ci-ro-pw@localhost:5432/gopulse
+      DATABASE_URL_RW: postgresql://gopulse_api_rw:ci-rw-pw@localhost:5432/gopulse
+      CORS_ORIGINS: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: pip install -r requirements.txt
+      - name: Create API roles
+        env:
+          PGHOST: localhost
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        run: sh infrastructure/docker/postgres/init.sh
+      - name: Seed the demo data (generate -> pipeline -> dbt -> failure demo -> publish)
+        run: sh scripts/seed.sh
+      - name: Install web dependencies and Chromium
+        working-directory: apps/web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Playwright (starts the API and a production web build itself)
+        working-directory: apps/web
+        env:
+          CI: "true"
+        run: npx playwright test
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results
+          retention-days: 7
+
+  docker:
+    name: Docker - build images and smoke-test the compose stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .env from the example (local-only placeholder secrets)
+        run: cp .env.example .env
+      - name: Validate and build
+        run: |
+          docker compose config -q
+          docker compose build api web seed
+      - name: Start stack, seed, check
+        run: |
+          docker compose up -d
+          docker compose --profile seed run --rm seed
+          for _ in $(seq 1 30); do
+            [ "$(docker compose ps --format '{{.Health}}' api)" = "healthy" ] && break; sleep 3
+          done
+          curl -fsS http://localhost:8000/health
+          curl -fsS "http://localhost:8000/api/v1/overview" | python3 -c "import sys,json; d=json.load(sys.stdin); assert len(d['kpis'])>=10, d"
+          curl -fsS -o /dev/null -w 'web %{http_code}\n' http://localhost:3000/
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  # ---- heavy suites: main, nightly, manual, or PRs labelled `full-ci` ----------------------------------------
+  spark:
+    name: Spark/Delta parity vs DuckDB (~8 min)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gopulse-spark infrastructure/docker/spark
+      - name: Parity tests
+        run: >-
+          docker run --rm -v "$PWD:/opt/gopulse" -w /opt/gopulse gopulse-spark
+          python -m pytest databricks/tests/test_spark_parity.py -q -p no:cacheprovider --rootdir /opt/gopulse -c /dev/null
+
+  airflow:
+    name: Airflow DAG import + bounded backfill
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gopulse-airflow infrastructure/docker/airflow
+      - name: DAG imports cleanly and a 2-day bounded backfill succeeds
+        run: |
+          docker run --rm -v "$PWD:/opt/gopulse" \
+            -e GOPULSE_WORK_DIR=/tmp/gp -e GOPULSE_USERS=150 -e GOPULSE_DAYS=30 \
+            gopulse-airflow bash -c '
+              set -e
+              airflow db migrate >/dev/null 2>&1
+              test "$(airflow dags list-import-errors | tail -1)" = "No data found"
+              airflow dags backfill -s 2026-01-02 -e 2026-01-03 gopulse_daily > /tmp/bf.log 2>&1 || { tail -50 /tmp/bf.log; exit 1; }
+              test "$(grep -c "state=success" /tmp/bf.log)" -ge 2'
+
+  workflow-lint:
+    name: Lint workflow files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color
