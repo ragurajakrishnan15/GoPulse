@@ -1,0 +1,7 @@
+# Runtime dependencies of the API image (the demo-run endpoint executes the real pipeline, hence duckdb & friends).
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+psycopg[binary,pool]>=3.2,<4
+duckdb>=1.1,<3
+jsonschema>=4.21,<5
+pyyaml>=6,<7

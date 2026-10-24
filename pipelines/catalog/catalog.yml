@@ -1,0 +1,281 @@
+# Hand-curated metadata for the Data Catalog. Column TYPES and ROW COUNTS are read from the database at publish
+# time; test status comes from quality_check_results / the dbt manifest. All data is synthetic.
+refresh_cadence: "Each pipeline run (daily in the cloud design; on demand locally)"
+source_link_base: "https://github.com/ragurajakrishnan15/GoPulse/blob/main/"
+
+models:
+  - name: silver_events
+    layer: silver
+    description: Cleaned, typed, deduplicated product and agent events.
+    purpose: Single trusted event stream that every Gold model is derived from.
+    grain: One row per unique event_id
+    primary_key: event_id
+    upstream: [bronze_events]
+    source: pipelines/jobs/silver.py
+    columns:
+      event_id: Stable unique event identifier (dedup key; earliest ingested_at wins).
+      event_ts: When the event happened (UTC).
+      activity_date: UTC date of event_ts; partition key.
+      is_late: True when ingested more than 3 days after event_ts.
+  - name: dim_users
+    layer: gold
+    description: Users with signup date, account tier/segment and current plan.
+    purpose: Conformed user dimension for filters and cohorts.
+    grain: One row per user
+    primary_key: user_id
+    upstream: [raw_users, raw_accounts, silver_events]
+    source: pipelines/jobs/gold.py
+    columns:
+      signup_date: UTC signup date; defines the cohort.
+      account_tier: Tier of the user's account, or no_account.
+      current_plan: pro when a subscription_started event exists, else free (current, not historical).
+  - name: dim_accounts
+    layer: gold
+    description: Synthetic account tier and segment.
+    purpose: Account-level adoption analysis.
+    grain: One row per account
+    primary_key: account_id
+    upstream: [raw_accounts]
+    source: pipelines/jobs/gold.py
+  - name: dim_features
+    layer: gold
+    description: Product features and categories.
+    purpose: Feature adoption analysis.
+    grain: One row per feature
+    primary_key: feature_id
+    upstream: [raw_features]
+    source: pipelines/jobs/gold.py
+  - name: fct_product_events
+    layer: gold
+    description: Canonical behavioural event facts.
+    purpose: Event-level analysis and reconciliation to Silver.
+    grain: One row per accepted unique event
+    primary_key: event_id
+    upstream: [silver_events]
+    source: pipelines/jobs/gold.py
+  - name: fct_agent_interactions
+    layer: gold
+    description: One row per agent execution with outcome, latency, tokens and ESTIMATED cost.
+    purpose: Agent reliability, latency and cost analysis.
+    grain: One row per execution_id
+    primary_key: execution_id
+    upstream: [silver_events]
+    source: pipelines/jobs/gold.py
+    columns:
+      cost_usd_estimate: Synthetic estimate from documented token pricing; not vendor billing.
+      is_success: status = success.
+  - name: fct_daily_user_activity
+    layer: gold
+    description: Daily qualifying activity per user.
+    purpose: DAU/WAU and retention.
+    grain: One row per user per UTC activity date
+    primary_key: user_id, activity_date
+    upstream: [silver_events]
+    source: pipelines/jobs/gold.py
+  - name: fct_user_lifecycle
+    layer: gold
+    description: Onboarding and subscription milestones per user.
+    purpose: Activation and conversion funnels.
+    grain: One row per user
+    primary_key: user_id
+    upstream: [dim_users, silver_events]
+    source: pipelines/jobs/gold.py
+  - name: fct_account_adoption
+    layer: gold
+    description: Account usage per calendar month.
+    purpose: Account-level adoption (never mixed with user-level denominators).
+    grain: One row per account per month
+    primary_key: account_id, period_start
+    upstream: [dim_accounts, dim_users, fct_daily_user_activity]
+    source: pipelines/jobs/gold.py
+  - name: agg_product_metrics_daily
+    layer: gold
+    description: Fast KPI aggregate by date and account tier.
+    purpose: Dashboard KPI queries.
+    grain: One row per date and account tier
+    primary_key: date, account_tier
+    upstream: [fct_daily_user_activity, fct_agent_interactions, dim_users]
+    source: pipelines/jobs/gold.py
+  - name: agg_activation_funnel_daily
+    layer: gold
+    description: Signup cohort funnel counts with window-complete flags.
+    purpose: Activation and conversion rates.
+    grain: One row per signup date and account tier
+    primary_key: signup_date, account_tier
+    upstream: [fct_user_lifecycle]
+    source: pipelines/jobs/gold.py
+  - name: agg_retention_cohorts
+    layer: gold
+    description: Cohort retention counts for day 1/7/14/30.
+    purpose: Retention curves.
+    grain: One row per signup date, tier and day_n
+    primary_key: signup_date, account_tier, day_n
+    upstream: [dim_users, fct_daily_user_activity]
+    source: pipelines/jobs/gold.py
+  - name: mart_kpi_daily
+    layer: mart
+    description: Whole-population daily KPIs (DAU, WAU, signups, agent success, latency, cost).
+    purpose: Overview page headline series.
+    grain: One row per UTC date
+    primary_key: date
+    upstream: [fct_daily_user_activity, dim_users, fct_agent_interactions]
+    source: transformations/dbt/models/marts/mart_kpi_daily.sql
+  - name: mart_activation_rates
+    layer: mart
+    description: Activation (7d) and conversion (30d) rates per signup date and tier.
+    purpose: Signup-to-activation and conversion funnels.
+    grain: One row per signup date and tier
+    primary_key: signup_date, account_tier
+    upstream: [agg_activation_funnel_daily]
+    source: transformations/dbt/models/marts/mart_activation_rates.sql
+  - name: mart_retention_weekly
+    layer: mart
+    description: Weekly cohort retention for day 1/7/14/30 using only elapsed windows.
+    purpose: Retention cohort heatmap.
+    grain: One row per cohort week, tier and day_n
+    primary_key: cohort_week, account_tier, day_n
+    upstream: [agg_retention_cohorts]
+    source: transformations/dbt/models/marts/mart_retention_weekly.sql
+  - name: mart_agent_summary
+    layer: mart
+    description: Agent outcome, latency and estimated cost per agent type.
+    purpose: Agent Insights page.
+    grain: One row per agent_type
+    primary_key: agent_type
+    upstream: [fct_agent_interactions]
+    source: transformations/dbt/models/marts/mart_agent_summary.sql
+  - name: mart_agent_failures
+    layer: mart
+    description: Failure categories with their share of failed executions.
+    purpose: Agent failure analysis.
+    grain: One row per failure_category
+    primary_key: failure_category
+    upstream: [fct_agent_interactions]
+    source: transformations/dbt/models/marts/mart_agent_failures.sql
+  - name: mart_feature_adoption_weekly
+    layer: mart
+    description: Weekly feature adoption among active users.
+    purpose: Feature adoption over time.
+    grain: One row per week and feature
+    primary_key: week, feature_id
+    upstream: [stg_events, fct_daily_user_activity, dim_features]
+    source: transformations/dbt/models/marts/mart_feature_adoption_weekly.sql
+  - name: mart_account_adoption
+    layer: mart
+    description: Share of accounts with at least one active user, by month and tier.
+    purpose: Account-level adoption comparison.
+    grain: One row per month and account tier
+    primary_key: period_start, account_tier
+    upstream: [fct_account_adoption]
+    source: transformations/dbt/models/marts/mart_account_adoption.sql
+
+metrics:
+  - key: dau
+    label: Daily active users
+    unit: users
+    definition: Distinct users with at least one qualifying activity event on a UTC calendar date.
+    numerator: distinct user_id with a qualifying event
+    denominator: none
+    time_window: one UTC date
+    eligibility: Qualifying = feature_opened, suggestion_*, agent_* events. Lifecycle events do not count.
+    source_model: fct_daily_user_activity
+  - key: wau
+    label: Weekly active users
+    unit: users
+    definition: Distinct users with qualifying activity in the trailing 7 UTC days including the date.
+    numerator: distinct user_id with a qualifying event
+    denominator: none
+    time_window: rolling 7 days
+    eligibility: Same as DAU.
+    source_model: fct_daily_user_activity
+  - key: registered_users
+    label: Registered demo users
+    unit: users
+    definition: Cumulative users whose signup date is on or before the date.
+    numerator: users signed up
+    denominator: none
+    time_window: cumulative
+    eligibility: All synthetic users.
+    source_model: dim_users
+  - key: activation_rate
+    label: Activation rate
+    unit: ratio
+    definition: Share of a signup cohort that completed onboarding within 7 days of signup.
+    numerator: users with onboarding_completed within 7d of signup
+    denominator: users in the signup cohort
+    time_window: 7 days from signup
+    eligibility: Only cohorts whose 7-day window has fully elapsed.
+    notes: Association, not causation.
+    source_model: mart_activation_rates
+  - key: conversion_rate
+    label: Conversion rate
+    unit: ratio
+    definition: Share of a signup cohort that started a subscription within 30 days of signup.
+    numerator: users with subscription_started within 30d of signup
+    denominator: users in the signup cohort
+    time_window: 30 days from signup
+    eligibility: Only cohorts whose 30-day window has fully elapsed.
+    source_model: mart_activation_rates
+  - key: retention_d7
+    label: Day-7 retention
+    unit: ratio
+    definition: Share of eligible cohort users with qualifying activity exactly 7 days after their signup date.
+    numerator: cohort users active on signup_date + 7
+    denominator: cohort users whose day 7 has elapsed
+    time_window: day n after signup (n = 1, 7, 14, 30)
+    eligibility: Users whose day n has not elapsed are excluded from numerator and denominator.
+    source_model: mart_retention_weekly
+  - key: agent_success_rate
+    label: Agent success rate
+    unit: ratio
+    definition: Successful agent executions divided by completed (success or failed) executions.
+    numerator: executions ending in agent_completed
+    denominator: executions ending in agent_completed or agent_failed
+    time_window: selected period
+    eligibility: Cancelled and still-running executions are excluded.
+    source_model: fct_agent_interactions
+  - key: p50_latency_ms
+    label: P50 latency
+    unit: ms
+    definition: Median agent execution duration.
+    numerator: percentile_cont(0.5) of duration_ms
+    denominator: none
+    time_window: selected period
+    eligibility: Terminal executions with duration_ms >= 0.
+    source_model: fct_agent_interactions
+  - key: p95_latency_ms
+    label: P95 latency
+    unit: ms
+    definition: 95th percentile of agent execution duration.
+    numerator: percentile_cont(0.95) of duration_ms
+    denominator: none
+    time_window: selected period
+    eligibility: Terminal executions with duration_ms >= 0.
+    source_model: fct_agent_interactions
+  - key: est_cost_per_interaction_usd
+    label: Estimated cost per interaction
+    unit: usd
+    definition: Estimated processing cost divided by eligible interactions, from synthetic token pricing.
+    numerator: sum of cost_usd_estimate
+    denominator: terminal executions
+    time_window: selected period
+    eligibility: Cost = (input_tokens x $3 + output_tokens x $15) / 1e6 x (1 + retries). An ESTIMATE, not vendor billing.
+    source_model: fct_agent_interactions
+  - key: feature_adoption
+    label: Feature adoption
+    unit: ratio
+    definition: Users who opened the feature in the period divided by active users in the period.
+    numerator: distinct users with feature_opened for the feature
+    denominator: distinct users with qualifying activity
+    time_window: calendar week
+    eligibility: User-level; never combined with account-level denominators.
+    source_model: mart_feature_adoption_weekly
+  - key: account_adoption
+    label: Account adoption
+    unit: ratio
+    definition: Accounts with at least one active user divided by eligible accounts.
+    numerator: accounts with >= 1 active user in the month
+    denominator: accounts created on or before the month end
+    time_window: calendar month
+    eligibility: Account-level metric.
+    source_model: mart_account_adoption
