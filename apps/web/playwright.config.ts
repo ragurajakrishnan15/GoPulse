@@ -29,9 +29,10 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
-  use: { baseURL: "http://localhost:3000", trace: "retain-on-failure" },
+  // E2E_BASE_URL points the suite at an already-deployed site (no local servers are started).
+  use: { baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: [
+  webServer: process.env.E2E_BASE_URL ? undefined : [
     {
       // API with relaxed demo limits so the suite can run the demo workflow repeatedly.
       command: `"${python}" -m uvicorn services.api.app.main:app --port 8000`,

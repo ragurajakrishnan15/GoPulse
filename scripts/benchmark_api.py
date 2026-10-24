@@ -84,12 +84,15 @@ def main(argv=None):
     p.add_argument("--base", default="http://localhost:8000")
     p.add_argument("--n", type=int, default=100)
     p.add_argument("--out", type=Path, default=Path("docs/benchmarks/api.json"))
+    p.add_argument("--clients", type=int, default=20, help="concurrent clients in the load phase (use fewer against a shared/free service)")
+    p.add_argument("--per-client", type=int, default=25)
     a = p.parse_args(argv)
     with httpx.Client(base_url=a.base, timeout=30) as c:
         ds = c.get("/api/v1/overview").json()
         counts = {"users": next(k["value"] for k in ds["kpis"] if k["key"] == "registered_users")}
     seq = sequential(a.base, a.n)
-    conc = [concurrent(a.base, "/api/v1/overview", 20, 25), concurrent(a.base, "/api/v1/metrics/timeseries?metric=dau", 20, 25)]
+    conc = [concurrent(a.base, "/api/v1/overview", a.clients, a.per_client),
+            concurrent(a.base, "/api/v1/metrics/timeseries?metric=dau", a.clients, a.per_client)]
     res = {"machine": {"platform": platform.platform(), "python": platform.python_version()}, "dataset": counts, "api_workers": 1,
            "sequential": seq, "concurrent": conc}
     a.out.parent.mkdir(parents=True, exist_ok=True)

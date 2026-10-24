@@ -9,6 +9,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const BASE = process.env.WEB_URL ?? "http://localhost:3000";
+const IS_LIVE = !/localhost|127\.0\.0\.1/.test(BASE);
+const SCREENSHOTS = process.env.CAPTURE_SCREENSHOTS !== "0";
 const root = path.resolve(import.meta.dirname, "../../..");
 const shots = path.join(root, "docs", "media", "screenshots");
 mkdirSync(shots, { recursive: true });
@@ -29,7 +31,7 @@ async function settle(page) {
 const browser = await chromium.launch();
 
 // ---- screenshots -------------------------------------------------------------------------------------------------
-for (const [name, url] of PAGES) {
+if (SCREENSHOTS) for (const [name, url] of PAGES) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: "light" });
   const page = await ctx.newPage();
   await page.goto(BASE + url);
@@ -37,7 +39,7 @@ for (const [name, url] of PAGES) {
   await page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true });
   await ctx.close();
 }
-for (const [name, url] of [["overview", "/"], ["quality", "/quality"]]) {
+if (SCREENSHOTS) for (const [name, url] of [["overview", "/"], ["quality", "/quality"]]) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: "dark" });
   const page = await ctx.newPage();
   await page.goto(BASE + url);
@@ -45,7 +47,7 @@ for (const [name, url] of [["overview", "/"], ["quality", "/quality"]]) {
   await page.screenshot({ path: path.join(shots, `${name}-dark.png`), fullPage: true });
   await ctx.close();
 }
-for (const [name, url] of [["overview", "/"], ["pipelines", "/pipelines"], ["analytics", "/analytics"]]) {
+if (SCREENSHOTS) for (const [name, url] of [["overview", "/"], ["pipelines", "/pipelines"], ["analytics", "/analytics"]]) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await page.goto(BASE + url);
@@ -84,6 +86,6 @@ for (const [name, url] of PAGES) {
     cls: +pick("cls").toFixed(4), js_kb_encoded: Math.round(pick("jsKB")), requests: pick("requests") });
   console.log(vitals.at(-1));
 }
-writeFileSync(path.join(root, "docs", "benchmarks", "web_vitals.json"), JSON.stringify({ base: BASE, throttling: "none (localhost)", browser: browser.version(), results: vitals }, null, 2));
+writeFileSync(path.join(root, "docs", "benchmarks", IS_LIVE ? "web_vitals_live.json" : "web_vitals.json"), JSON.stringify({ base: BASE, throttling: IS_LIVE ? "none on the client; real network to the deployed site" : "none (localhost)", browser: browser.version(), results: vitals }, null, 2));
 await browser.close();
 console.log("screenshots ->", shots);
