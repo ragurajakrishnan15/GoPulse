@@ -57,6 +57,7 @@ Activation, retention and conversion are cohort-based with complete-window eligi
 Live uptime, a deployed URL, Databricks or cloud execution, cloud cost, real-user impact, or that the synthetic analytics are findings.
 
 ## Before sharing publicly
-* Push to a repository and let GitHub Actions run once; fix anything the Linux runners surface. Add the real link.
+* Done: pushed to https://github.com/ragurajakrishnan15/GoPulse; CI is green (the first run found four environment-specific defects - a good story: see [ci.md](ci.md)).
+* Triage the Dependabot pull requests (some are major-version jumps, e.g. TypeScript 7, ESLint 10) or tune `.github/dependabot.yml`.
 * Choose a licence (none is included).
 * If you deploy later, follow the gated workflow in [ci.md](ci.md) and add the live link to the README.

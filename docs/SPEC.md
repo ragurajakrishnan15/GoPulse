@@ -595,7 +595,7 @@ Status as of Phase 9. A box is ticked only where it was verified; evidence is in
 | [x] | Quality failures and recovery can be demonstrated | `pipelines/jobs/failure_demo.py`, Data quality page, [quality.md](quality.md) |
 | [x] | API endpoints return validated, consistent data | 53 API tests against PostgreSQL (validation, reconciliation, permissions) |
 | [x] | All six website views work on desktop and mobile | 54 Playwright tests incl. axe WCAG A/AA (light + dark) and 375 px layout |
-| [ ] | GitHub Actions runs required checks successfully | workflows written and `actionlint`-clean; each job's commands run locally; **never run on GitHub** (no remote yet) |
+| [x] | GitHub Actions runs required checks successfully | all 8 jobs green on GitHub runners ([run 40053040915](https://github.com/ragurajakrishnan15/GoPulse/actions/runs/40053040915)); the first run failed 4 jobs, fixed - see [ci.md](ci.md) |
 | [ ] | Public website and backend use HTTPS | **not deployed** (deployment phase skipped by choice) |
 | [x] | Demo data and any seeded execution history are clearly labeled | banner on every page; `source` label on every run; "Estimate" badges |
 | [ ] | README contains architecture, setup, metric definitions, and genuine live links | architecture, setup, metrics: yes. **Live links: none exist** |

@@ -39,7 +39,24 @@ It is a skeleton until Phase 8 chooses hosts. Dependabot watches pip, npm, Actio
 For stronger supply-chain hygiene pin third-party actions to commit SHAs (Dependabot can keep them current).
 
 ## What was verified (and what was not)
-GitHub Actions itself was **not** run - there is no remote repository yet. Instead:
+### On GitHub (the real thing)
+The repository was pushed to https://github.com/ragurajakrishnan15/GoPulse and CI ran on Linux runners.
+
+| Run | Result | What happened |
+|---|---|---|
+| First (`5a36295`) | **4 of 8 jobs failed**; Python, Web, Spark parity and workflow lint passed | see the four root causes below |
+| Second (`95b0d51`) | **8 of 8 green** | after fixing all four |
+| `Deploy` workflow (after each CI run) | gate job succeeded, both deploy jobs **skipped** | `DEPLOY_ENABLED` is unset, so nothing deploys - the gate works as designed |
+
+Root causes of the first run's failures - none were visible from local runs:
+1. **API job:** `test_failure_demo_report` passed locally only because earlier runs had left a git-ignored generated file (`data/demo/failure_demo.json`) behind. Fixed by building the report inside the test fixture.
+2. **Docker job:** `apps/web/public/` was an empty directory, which git does not track, so `COPY /app/public` failed. Added `robots.txt`.
+3. **E2E job:** a 5 px horizontal overflow of `/pipelines` at 375 px - the demo scenario `<select>` is as wide as its longest option, wider in Linux's default font. Let it shrink; the test now names offending elements when it fails.
+4. **Airflow job:** dbt exited with code 2 and *no output* because the runner mounts the repo as another user and dbt could not create `./target` and `./logs`; the task's error message was empty. Reproduced locally with a uid-1001-owned volume. `GOPULSE_DBT_TARGET_DIR` now relocates them (set in the Airflow image) and dbt's stdout/stderr are included in the failure message.
+
+Lesson recorded: *passing on the developer's machine is evidence about that machine* - clean-checkout and different-OS runs found four defects that 189 local tests did not.
+
+### Before the push (local verification)
 
 | Check | Result |
 |---|---|
@@ -47,7 +64,7 @@ GitHub Actions itself was **not** run - there is no remote repository yet. Inste
 | Each job's commands run locally | `ruff` + `pytest quality`; `pytest services` against Postgres; `npm ci` → typecheck → lint → 27 unit tests → build; Playwright in `CI=true` mode (production standalone build) 54/54; the Airflow step exactly as written (2 successful backfill runs); Spark parity (Phase 6) |
 | Fresh-machine behaviour | whole compose stack on an empty database volume: roles created, 3 images healthy, seed OK, **54/54 Playwright tests against the containers** |
 | Container hardening | non-root users, read-only API filesystem (demo run still works via tmpfs), security headers on web and API, `no-new-privileges` |
-| Not verified | Linux runners' timing, the `actions/*` versions resolving, cache behaviour, `upload-artifact`, the `docker://rhysd/actionlint` step, and the deploy workflow (no target exists yet) |
+| Not verified | an actual deployment (no target exists; the deploy jobs are skipped by the gate) |
 
 ## Problems this phase surfaced (all fixed)
 1. **Lockfile** generated on Windows lacked Linux optional dependencies, so `npm ci` failed in Docker/CI. Regenerated from scratch; verified on Linux and Windows.

@@ -1,5 +1,7 @@
 # GoPulse
 
+[![CI](https://github.com/ragurajakrishnan15/GoPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/ragurajakrishnan15/GoPulse/actions/workflows/ci.yml)
+
 **An end-to-end data platform and analytics site for an AI product, built on synthetic data.**
 Raw events → validated, deduplicated lakehouse (Bronze/Silver/Gold) → tested dbt models → PostgreSQL → FastAPI → an accessible Next.js site, with
 data-quality gates, orchestration, and a Spark/Delta implementation proven equivalent to the local one.
@@ -9,8 +11,8 @@ data-quality gates, orchestration, and a Spark/Delta implementation proven equiv
 | | |
 |---|---|
 | **Status** | Built and tested end to end; runs locally in three commands. **Not deployed** - there is no live URL, and no cloud run history, runtime or cost is claimed. |
-| **Verified** | 189 automated tests (103 Python, 27 unit, 54 end-to-end, 5 Spark parity) · WCAG A/AA clean in light and dark · whole stack exercised in containers on a fresh database |
-| **Not verified** | GitHub Actions has not run (no remote yet) · nothing has run on a Databricks workspace · no load testing beyond the local benchmarks below |
+| **Verified** | 189 automated tests (103 Python, 27 unit, 54 end-to-end, 5 Spark parity) · **all 8 GitHub Actions jobs green** on Linux runners (the first run failed 4 of 8; causes found and fixed, see [ci.md](docs/ci.md)) · WCAG A/AA clean in light and dark · whole stack exercised in containers on a fresh database |
+| **Not verified** | the deploy workflow has never deployed (it is gated off) · nothing has run on a Databricks workspace · no load testing beyond the local benchmarks below |
 
 ![Overview](docs/media/screenshots/overview.png)
 
@@ -129,7 +131,7 @@ transactions); one API worker until there is a shared rate limiter; deploy gated
 * Synthetic data is simple: no seasonality or real behavioural structure, so *the analytics are not findings* - they exist to exercise the pipeline.
 * "Plan" filter uses each user's *current* plan, not their plan at event time.
 * The demo rate limiter is in-memory (single API worker).
-* GitHub Actions workflows are linted and their commands run locally, but they have not run on GitHub.
+* The deploy workflow is gated off (`DEPLOY_ENABLED` unset): on GitHub it runs after CI and correctly skips both deploy jobs, but no real deployment has ever been attempted.
 
 ## Documentation index
 [Architecture](docs/architecture.md) · [Metric definitions](docs/metrics.md) · [Event contract](docs/event_contract.md) · [Pipeline](docs/pipeline.md) ·
