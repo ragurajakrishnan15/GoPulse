@@ -286,7 +286,7 @@ def test_demo_runs_survive_republish(client, lake, urls, pg):
     client.post("/api/v1/demo/run", json={"scenario": "clean", "seed": 5})
     n_before = pg.execute("SELECT count(*) AS n FROM serving.pipeline_runs WHERE source='demo-live'").fetchone()["n"]
     pg.commit()
-    publish(lake["db"], urls["owner"])
+    publish(lake["db"], urls["owner"], failure_demo=lake["demo"])
     n_after = pg.execute("SELECT count(*) AS n FROM serving.pipeline_runs WHERE source='demo-live'").fetchone()["n"]
     assert n_before >= 1 and n_after == n_before
 

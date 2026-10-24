@@ -26,7 +26,12 @@ from pipelines.serving.seed_history import seeded_history
 HERE = Path(__file__).parent
 SCHEMA_SQL = HERE / "schema.sql"
 CATALOG_YML = HERE.parent / "catalog" / "catalog.yml"
-DBT_MANIFEST = Path("transformations/dbt/target/manifest.json")
+DBT_MANIFEST = Path("transformations/dbt/target/manifest.json")  # default; GOPULSE_DBT_TARGET_DIR relocates it
+
+
+def _manifest_path() -> Path:
+    base = os.environ.get("GOPULSE_DBT_TARGET_DIR")
+    return Path(base) / "target" / "manifest.json" if base else DBT_MANIFEST
 FAILURE_DEMO = Path("data/demo/failure_demo.json")
 
 MARTS = {
@@ -93,8 +98,9 @@ def _catalog(duck, as_of_run, qrows) -> tuple[list[tuple], list[tuple]]:
 
     tests_by_table: dict[str, list[dict]] = {}
     status_by_ref = {r["sample_ref"]: r["status"] for r in qrows if r["layer"] == "dbt"}
-    if DBT_MANIFEST.exists():
-        manifest = json.loads(DBT_MANIFEST.read_text(encoding="utf-8"))
+    manifest_path = _manifest_path()
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         for uid, node in manifest["nodes"].items():
             if node.get("resource_type") != "test":
                 continue
@@ -131,7 +137,7 @@ def _catalog(duck, as_of_run, qrows) -> tuple[list[tuple], list[tuple]]:
     return rows, metrics
 
 
-def publish(duck_path: Path | str = DEFAULT_DB, pg_url: str | None = None) -> dict:
+def publish(duck_path: Path | str = DEFAULT_DB, pg_url: str | None = None, failure_demo: Path | str | None = None) -> dict:
     pg_url = pg_url or os.environ.get("DATABASE_URL_OWNER")
     if not pg_url:
         raise PublishError("set DATABASE_URL_OWNER (or pass --pg)")
@@ -230,9 +236,10 @@ def publish(duck_path: Path | str = DEFAULT_DB, pg_url: str | None = None) -> di
                 samples.append(("duplicate_event_id", batch, line_no, ["duplicate_event_id"], Jsonb(json.loads(payload))))
             counts["quality_samples"] = _insert(cur, "quality_samples", ["reason", "batch_id", "line_no", "reasons", "payload"], samples)
 
-            if FAILURE_DEMO.exists():
+            demo_report = Path(failure_demo) if failure_demo else FAILURE_DEMO
+            if demo_report.exists():
                 cur.execute("INSERT INTO serving.failure_demo_report (id, report) VALUES (1, %s)",
-                            [Jsonb(json.loads(FAILURE_DEMO.read_text(encoding="utf-8")))])
+                            [Jsonb(json.loads(demo_report.read_text(encoding="utf-8")))])
                 counts["failure_demo_report"] = 1
 
             cat_rows, metric_rows = _catalog(duck, ended_at.replace(tzinfo=UTC), qrows)

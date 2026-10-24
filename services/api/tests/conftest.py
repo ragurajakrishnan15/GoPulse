@@ -15,6 +15,7 @@ from psycopg.conninfo import make_conninfo
 
 from pipelines.generators.generate import Config
 from pipelines.jobs.dbt_runner import persist_dbt_results, run_dbt_build
+from pipelines.jobs.failure_demo import run_demo
 from pipelines.jobs.run import run_pipeline
 from pipelines.serving.publish import publish
 from quality.integration_tests.test_pipeline import write_batch
@@ -69,8 +70,11 @@ def lake(tmp_path_factory, urls):
     out = run_dbt_build(db)
     assert out["returncode"] == 0, out["stdout_tail"]
     persist_dbt_results(db, out["results"])
-    publish(db, urls["owner"])
-    return {"db": db, "users": 200}
+    # The failure-demo report is a generated artifact (git-ignored); build a small one so the test never depends on files left
+    # over from earlier local runs (that hidden dependency made this test fail on a fresh CI checkout).
+    run_demo(root / "demo", users=150, seed=7)
+    publish(db, urls["owner"], failure_demo=root / "demo" / "failure_demo.json")
+    return {"db": db, "users": 200, "demo": root / "demo" / "failure_demo.json"}
 
 
 @pytest.fixture(scope="session")
