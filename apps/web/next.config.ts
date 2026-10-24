@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Self-contained server bundle for the Docker image (node server.js, no node_modules at runtime).
-  output: "standalone",
+  // Self-contained server bundle for the Docker image (node server.js, no node_modules at runtime). Vercel produces its own output.
+  output: process.env.VERCEL ? undefined : "standalone",
   poweredByHeader: false,
   cacheComponents: true,
   partialPrefetching: true,

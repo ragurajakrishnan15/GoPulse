@@ -1,0 +1,28 @@
+name: Keep database awake
+
+# Supabase's free tier pauses a project after a week without activity, which would silently take the demo down.
+# This job makes a harmless read-only request every 3 days that goes through the API to the database.
+# (GitHub also disables scheduled workflows after 60 days without repository activity - push something occasionally, or
+# re-enable it from the Actions tab.) It does nothing until the PUBLIC_API_URL variable is set.
+on:
+  schedule:
+    - cron: "23 6 */3 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query the API (reads one table)
+        env:
+          API: ${{ vars.PUBLIC_API_URL }}
+        run: |
+          if [ -z "$API" ]; then echo "PUBLIC_API_URL is not set - nothing to keep awake"; exit 0; fi
+          for _ in 1 2 3; do
+            curl -fsS --max-time 60 "$API/api/v1/features" | head -c 200 && echo && exit 0
+            sleep 15
+          done
+          echo "the API did not answer"; exit 1

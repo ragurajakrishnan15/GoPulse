@@ -30,6 +30,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             GoPulse is an independent portfolio project built on <strong>synthetic data</strong>. It is not affiliated with any company and uses no
             proprietary or customer data. Cost figures are estimates from documented assumptions, not vendor billing.
           </p>
+          <p className="mt-2">
+            Privacy: no cookies, no analytics. If you run the demo pipeline, a salted one-way hash of your network address is kept for up to one hour
+            to enforce rate limits; no raw IP address is stored.
+          </p>
         </footer>
       </body>
     </html>

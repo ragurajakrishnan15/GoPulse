@@ -1,9 +1,12 @@
 name: Deploy
 
-# Deploys ONLY from `main`, ONLY after the CI workflow succeeded on that exact commit, and ONLY when the repository
-# variable DEPLOY_ENABLED is "true" (off by default, so forks and fresh clones never try to deploy).
-# Credentials live in the `production` environment's secrets (add required reviewers there for a manual gate).
-# Target-specific setup is documented in docs/deployment.md.
+# Deploys ONLY from `main`, ONLY after the CI workflow succeeded on that exact commit, and ONLY when the repository variable
+# DEPLOY_ENABLED is "true" (off by default, so forks and fresh clones never try to deploy).
+# Both halves go to Vercel (see docs/deployment.md): the API as a Python function (a staged, self-contained bundle) and the site
+# as a Next.js project. Credentials live in the `production` environment (add required reviewers there for a manual gate).
+#
+# Required secrets (environment `production`): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_WEB_PROJECT_ID, VERCEL_API_PROJECT_ID
+# Required variables: DEPLOY_ENABLED=true, PUBLIC_API_URL, PUBLIC_WEB_URL (the stable production URLs, no trailing slash)
 on:
   workflow_run:
     workflows: [CI]
@@ -43,8 +46,8 @@ jobs:
           echo "sha=${RUN_SHA:-$GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "deploy: $go (enabled=$ENABLED event=$EVENT conclusion=$CONCLUSION)"
 
-  web:
-    name: Deploy web (Vercel)
+  api:
+    name: Deploy API (Vercel Python function)
     needs: gate
     if: needs.gate.outputs.go == 'true'
     runs-on: ubuntu-latest
@@ -52,7 +55,42 @@ jobs:
     timeout-minutes: 20
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Stage the self-contained API bundle
+        run: python scripts/stage_api.py
+      - name: Deploy to production
+        working-directory: deploy/api
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+      - name: Smoke-test the live API (read-only checks; CORS for the site)
+        run: |
+          for _ in $(seq 1 12); do
+            python scripts/smoke_api.py "${{ vars.PUBLIC_API_URL }}" --origin "${{ vars.PUBLIC_WEB_URL }}" && exit 0
+            sleep 10
+          done
+          echo "the deployed API did not pass its smoke test"; exit 1
+
+  web:
+    name: Deploy web (Vercel Next.js)
+    needs: [gate, api]            # never point the site at an API that failed to deploy
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,38 +98,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Build and deploy the prebuilt output
+      - name: Build and deploy
         working-directory: apps/web
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           NEXT_PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}      # inlined into the browser bundle at build time
         run: |
-          npm i -g vercel@latest
-          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
-          vercel build --prod --token "$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"
-
-  api:
-    name: Deploy API (container host deploy hook)
-    needs: gate
-    if: needs.gate.outputs.go == 'true'
-    runs-on: ubuntu-latest
-    environment: production
-    timeout-minutes: 10
-    steps:
-      - name: Trigger the host to build and roll out this commit
-        env:
-          HOOK: ${{ secrets.API_DEPLOY_HOOK_URL }}
-          SHA: ${{ needs.gate.outputs.sha }}
+          npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --build-env NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
+      - name: Check the live site
         run: |
-          test -n "$HOOK" || { echo "API_DEPLOY_HOOK_URL secret is not set"; exit 1; }
-          curl -fsS -X POST "${HOOK}&ref=${SHA}"
-      - name: Wait for the API to be healthy
-        env:
-          URL: ${{ vars.PUBLIC_API_URL }}
-        run: |
-          for _ in $(seq 1 40); do
-            curl -fsS "$URL/health" && exit 0
-            sleep 15
+          for _ in $(seq 1 12); do
+            curl -fsS -o /dev/null -w 'site %{http_code}\n' "${{ vars.PUBLIC_WEB_URL }}" && exit 0
+            sleep 10
           done
-          echo "API did not become healthy"; exit 1
+          exit 1

@@ -14,3 +14,11 @@ transformations/dbt/logs/
 test-results/
 playwright-report/
 .ruff_cache/
+
+# deployment secrets and Vercel link state - never commit
+.env.*
+!.env.example
+.vercel/
+
+# staged Vercel API bundle
+deploy/
