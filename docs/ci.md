@@ -33,7 +33,7 @@ No secrets are baked into any image: `.dockerignore` excludes `.env`, data and v
 
 `deploy.yml` deploys **only** from `main`, **only** after CI succeeded on that exact commit, and **only** when the repository variable
 `DEPLOY_ENABLED=true`. It uses the `production` environment (add required reviewers for a manual gate); credentials are environment secrets.
-It is a skeleton until Phase 8 chooses hosts. Dependabot watches pip, npm, Actions and the API base image.
+It is a skeleton until Phase 8 chooses hosts. Dependabot (`.github/dependabot.yml`) runs monthly, one grouped PR per ecosystem, minor/patch only for libraries and base images (majors are upgraded deliberately); GitHub Actions majors are allowed because they only affect the runner. The first, ungrouped weekly setup opened 14 PRs at once, including TypeScript 5→7 and ESLint 9→10.
 
 **Recommended repository settings:** protect `main`; require the `python`, `api`, `web`, `e2e` and `docker` checks; require PR review.
 For stronger supply-chain hygiene pin third-party actions to commit SHAs (Dependabot can keep them current).

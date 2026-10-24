@@ -58,6 +58,6 @@ Live uptime, a deployed URL, Databricks or cloud execution, cloud cost, real-use
 
 ## Before sharing publicly
 * Done: pushed to https://github.com/ragurajakrishnan15/GoPulse; CI is green (the first run found four environment-specific defects - a good story: see [ci.md](ci.md)).
-* Triage the Dependabot pull requests (some are major-version jumps, e.g. TypeScript 7, ESLint 10) or tune `.github/dependabot.yml`.
+* Dependabot is configured for monthly, grouped, minor/patch-only updates (the first weekly setup flooded the repo with 14 PRs); merge its PRs when CI is green.
 * Choose a licence (none is included).
 * If you deploy later, follow the gated workflow in [ci.md](ci.md) and add the live link to the README.
