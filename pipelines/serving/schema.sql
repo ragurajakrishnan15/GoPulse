@@ -79,6 +79,11 @@ CREATE INDEX IF NOT EXISTS qcr_run_idx ON quality_check_results (run_id);
 CREATE TABLE IF NOT EXISTS quality_samples (
     reason TEXT NOT NULL, batch_id TEXT, line_no BIGINT, reasons TEXT[], payload JSONB);
 CREATE INDEX IF NOT EXISTS qs_reason_idx ON quality_samples (reason);
+-- Rate-limit state for the demo-run endpoint (shared across serverless instances). Clients are SALTED HASHES, never IP
+-- addresses; rows older than one hour are pruned on every check. Not touched by `publish` so history survives republishing.
+CREATE TABLE IF NOT EXISTS demo_hits (client_hash TEXT NOT NULL, at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS demo_hits_client_at_idx ON demo_hits (client_hash, at);
+CREATE INDEX IF NOT EXISTS demo_hits_at_idx ON demo_hits (at);
 CREATE TABLE IF NOT EXISTS failure_demo_report (id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1), report JSONB NOT NULL);
 
 -- Catalog
@@ -101,5 +106,6 @@ BEGIN
         GRANT USAGE ON SCHEMA serving TO gopulse_api_rw;
         GRANT SELECT ON ALL TABLES IN SCHEMA serving TO gopulse_api_rw;
         GRANT INSERT ON serving.pipeline_runs, serving.pipeline_task_runs, serving.quality_check_results TO gopulse_api_rw;
+        GRANT INSERT, DELETE ON serving.demo_hits TO gopulse_api_rw;  -- DELETE only here, to prune old rate-limit rows
     END IF;
 END $$;

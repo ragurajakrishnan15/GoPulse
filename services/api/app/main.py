@@ -8,6 +8,7 @@ can only INSERT run-history rows.
 from __future__ import annotations
 
 import logging
+import secrets
 from contextlib import asynccontextmanager
 
 import psycopg.errors
@@ -17,8 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from services.api.app.config import Settings
-from services.api.app.db import make_pool
-from services.api.app.ratelimit import RateLimiter
+from services.api.app.db import Pools
+from services.api.app.ratelimit import PgRateLimiter, RateLimiter
 from services.api.app.routers import analytics, demo, ops
 
 log = logging.getLogger("gopulse.api")
@@ -27,19 +28,24 @@ log = logging.getLogger("gopulse.api")
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
 
+    if settings.rate_limit_backend not in ("memory", "postgres"):
+        raise RuntimeError(f"RATE_LIMIT_BACKEND must be 'memory' or 'postgres', got {settings.rate_limit_backend!r}")
+    if settings.rate_limit_backend == "postgres" and not settings.rate_limit_salt:
+        raise RuntimeError("RATE_LIMIT_SALT is required with RATE_LIMIT_BACKEND=postgres (client addresses are stored only as salted hashes)")
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.settings = settings
-        app.state.ro_pool = make_pool(settings.ro_url) if settings.ro_url else None
-        app.state.rw_pool = make_pool(settings.rw_url, max_size=2) if settings.rw_url else None
-        app.state.limiter = RateLimiter(settings.demo_per_minute, settings.demo_per_hour, settings.demo_global_per_hour)
         yield
-        for p in (app.state.ro_pool, app.state.rw_pool):
-            if p is not None:
-                p.close()
+        app.state.pools.close()  # (shutdown only: serverless runtimes may never call this, which is fine)
 
     app = FastAPI(title="GoPulse API", version="1.0.0", lifespan=lifespan,
                   description="Read API for the GoPulse AI product analytics demo. **All data is synthetic.**")
+    # State is set here, not in the lifespan hook: serverless runtimes may not run lifespan events, and the pools connect lazily.
+    app.state.settings = settings
+    app.state.pools = Pools(settings)
+    limiter_cls = PgRateLimiter if settings.rate_limit_backend == "postgres" else RateLimiter
+    app.state.limiter = limiter_cls(settings.demo_per_minute, settings.demo_per_hour, settings.demo_global_per_hour)
+    app.state.rate_limit_salt = settings.rate_limit_salt or secrets.token_hex(16)  # per-process salt when none is configured
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type"], expose_headers=["Retry-After"], max_age=600)
 
@@ -74,7 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health", tags=["health"], summary="Basic service health")
     def health(request: Request):
         db = "not_configured"
-        pool = request.app.state.ro_pool
+        pool = request.app.state.pools.ro
         if pool is not None:
             try:
                 with pool.connection() as conn:
