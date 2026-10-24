@@ -1,0 +1,91 @@
+{
+  "machine": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9",
+    "cpu_count": 12,
+    "duckdb": "2.0.0",
+    "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel"
+  },
+  "results": [
+    {
+      "users": 500,
+      "events": 28710,
+      "events_jsonl_mb": 10.8,
+      "status": "success",
+      "quarantined": 490,
+      "duplicates_removed": 82,
+      "generate_s": 0.45,
+      "write_jsonl_s": 0.16,
+      "pipeline_wall_s": 1.89,
+      "task_ms": {
+        "ingest": 857,
+        "silver": 394,
+        "gold": 147,
+        "reconcile": 0,
+        "quality": 20
+      },
+      "events_per_s_end_to_end": 15218,
+      "ingest_share_pct": 45.4
+    },
+    {
+      "users": 2000,
+      "events": 119173,
+      "events_jsonl_mb": 44.7,
+      "status": "success",
+      "quarantined": 2036,
+      "duplicates_removed": 340,
+      "generate_s": 2.02,
+      "write_jsonl_s": 0.7,
+      "pipeline_wall_s": 6.65,
+      "task_ms": {
+        "ingest": 3635,
+        "silver": 1377,
+        "gold": 205,
+        "reconcile": 0,
+        "quality": 32
+      },
+      "events_per_s_end_to_end": 17926,
+      "ingest_share_pct": 54.7
+    },
+    {
+      "users": 5000,
+      "events": 298731,
+      "events_jsonl_mb": 112.1,
+      "status": "success",
+      "quarantined": 5106,
+      "duplicates_removed": 851,
+      "generate_s": 5.27,
+      "write_jsonl_s": 1.84,
+      "pipeline_wall_s": 11.66,
+      "task_ms": {
+        "ingest": 8307,
+        "silver": 2215,
+        "gold": 396,
+        "reconcile": 0,
+        "quality": 30
+      },
+      "events_per_s_end_to_end": 25625,
+      "ingest_share_pct": 71.3
+    },
+    {
+      "users": 10000,
+      "events": 600078,
+      "events_jsonl_mb": 225.2,
+      "status": "success",
+      "quarantined": 10257,
+      "duplicates_removed": 1710,
+      "generate_s": 10.57,
+      "write_jsonl_s": 3.38,
+      "pipeline_wall_s": 23.9,
+      "task_ms": {
+        "ingest": 16012,
+        "silver": 4536,
+        "gold": 1135,
+        "reconcile": 0,
+        "quality": 54
+      },
+      "events_per_s_end_to_end": 25113,
+      "ingest_share_pct": 67.0
+    }
+  ]
+}

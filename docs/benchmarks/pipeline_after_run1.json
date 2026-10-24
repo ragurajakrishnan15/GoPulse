@@ -1,0 +1,71 @@
+{
+  "machine": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9",
+    "cpu_count": 12,
+    "duckdb": "2.0.0",
+    "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel"
+  },
+  "results": [
+    {
+      "users": 500,
+      "events": 28710,
+      "events_jsonl_mb": 10.8,
+      "status": "success",
+      "quarantined": 490,
+      "duplicates_removed": 82,
+      "generate_s": 0.42,
+      "write_jsonl_s": 0.16,
+      "pipeline_wall_s": 1.61,
+      "task_ms": {
+        "ingest": 744,
+        "silver": 292,
+        "gold": 142,
+        "reconcile": 0,
+        "quality": 20
+      },
+      "events_per_s_end_to_end": 17789,
+      "ingest_share_pct": 46.1
+    },
+    {
+      "users": 2000,
+      "events": 119173,
+      "events_jsonl_mb": 44.7,
+      "status": "success",
+      "quarantined": 2036,
+      "duplicates_removed": 340,
+      "generate_s": 1.87,
+      "write_jsonl_s": 0.61,
+      "pipeline_wall_s": 5.25,
+      "task_ms": {
+        "ingest": 3017,
+        "silver": 1092,
+        "gold": 186,
+        "reconcile": 0,
+        "quality": 27
+      },
+      "events_per_s_end_to_end": 22705,
+      "ingest_share_pct": 57.5
+    },
+    {
+      "users": 5000,
+      "events": 298731,
+      "events_jsonl_mb": 112.1,
+      "status": "success",
+      "quarantined": 5106,
+      "duplicates_removed": 851,
+      "generate_s": 4.68,
+      "write_jsonl_s": 1.61,
+      "pipeline_wall_s": 10.46,
+      "task_ms": {
+        "ingest": 7582,
+        "silver": 1872,
+        "gold": 378,
+        "reconcile": 0,
+        "quality": 29
+      },
+      "events_per_s_end_to_end": 28561,
+      "ingest_share_pct": 72.5
+    }
+  ]
+}

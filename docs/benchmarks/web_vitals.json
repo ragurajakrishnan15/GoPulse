@@ -1,0 +1,84 @@
+{
+  "base": "http://localhost:3000",
+  "throttling": "none (localhost)",
+  "browser": "156.0.8078.4",
+  "results": [
+    {
+      "page": "overview",
+      "url": "/",
+      "runs": 5,
+      "lcp_ms": 60,
+      "fcp_ms": 60,
+      "ttfb_ms": 6,
+      "cls": 0.0526,
+      "js_kb_encoded": 327,
+      "requests": 38
+    },
+    {
+      "page": "pipelines",
+      "url": "/pipelines",
+      "runs": 5,
+      "lcp_ms": 144,
+      "fcp_ms": 52,
+      "ttfb_ms": 5,
+      "cls": 0.0118,
+      "js_kb_encoded": 327,
+      "requests": 29
+    },
+    {
+      "page": "quality",
+      "url": "/quality",
+      "runs": 5,
+      "lcp_ms": 76,
+      "fcp_ms": 76,
+      "ttfb_ms": 6,
+      "cls": 0.0229,
+      "js_kb_encoded": 327,
+      "requests": 30
+    },
+    {
+      "page": "analytics",
+      "url": "/analytics",
+      "runs": 5,
+      "lcp_ms": 56,
+      "fcp_ms": 56,
+      "ttfb_ms": 6,
+      "cls": 0.044,
+      "js_kb_encoded": 327,
+      "requests": 34
+    },
+    {
+      "page": "agents",
+      "url": "/agents",
+      "runs": 5,
+      "lcp_ms": 56,
+      "fcp_ms": 56,
+      "ttfb_ms": 6,
+      "cls": 0.0219,
+      "js_kb_encoded": 327,
+      "requests": 32
+    },
+    {
+      "page": "catalog",
+      "url": "/catalog",
+      "runs": 5,
+      "lcp_ms": 56,
+      "fcp_ms": 56,
+      "ttfb_ms": 6,
+      "cls": 0.0697,
+      "js_kb_encoded": 327,
+      "requests": 35
+    },
+    {
+      "page": "catalog-model",
+      "url": "/catalog/fct_agent_interactions",
+      "runs": 5,
+      "lcp_ms": 76,
+      "fcp_ms": 76,
+      "ttfb_ms": 8,
+      "cls": 0.0248,
+      "js_kb_encoded": 327,
+      "requests": 30
+    }
+  ]
+}

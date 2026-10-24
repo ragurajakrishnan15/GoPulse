@@ -1,0 +1,205 @@
+{
+  "machine": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+  },
+  "dataset": {
+    "users": 500
+  },
+  "api_workers": 1,
+  "sequential": [
+    {
+      "endpoint": "health",
+      "path": "/health",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 0.1,
+      "p50_ms": 2.0,
+      "p95_ms": 2.7,
+      "max_ms": 3.0,
+      "mean_ms": 2.0
+    },
+    {
+      "endpoint": "overview",
+      "path": "/api/v1/overview",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 4.3,
+      "p50_ms": 63.5,
+      "p95_ms": 66.8,
+      "max_ms": 76.3,
+      "mean_ms": 63.8
+    },
+    {
+      "endpoint": "overview (tier+plan filter)",
+      "path": "/api/v1/overview?tier=pro&plan=pro",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 4.2,
+      "p50_ms": 10.4,
+      "p95_ms": 12.7,
+      "max_ms": 13.8,
+      "mean_ms": 10.6
+    },
+    {
+      "endpoint": "timeseries dau",
+      "path": "/api/v1/metrics/timeseries?metric=dau",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 4.8,
+      "p50_ms": 12.0,
+      "p95_ms": 14.2,
+      "max_ms": 20.7,
+      "mean_ms": 12.3
+    },
+    {
+      "endpoint": "timeseries wau (rolling window)",
+      "path": "/api/v1/metrics/timeseries?metric=wau",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 4.8,
+      "p50_ms": 48.5,
+      "p95_ms": 54.4,
+      "max_ms": 88.6,
+      "mean_ms": 49.2
+    },
+    {
+      "endpoint": "timeseries p95 latency",
+      "path": "/api/v1/metrics/timeseries?metric=p95_latency_ms",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 5.4,
+      "p50_ms": 6.6,
+      "p95_ms": 7.2,
+      "max_ms": 7.6,
+      "mean_ms": 6.6
+    },
+    {
+      "endpoint": "funnel",
+      "path": "/api/v1/funnels/activation",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 1.2,
+      "p50_ms": 3.1,
+      "p95_ms": 3.6,
+      "max_ms": 4.7,
+      "mean_ms": 3.2
+    },
+    {
+      "endpoint": "retention cohorts",
+      "path": "/api/v1/retention/cohorts",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 3.6,
+      "p50_ms": 7.3,
+      "p95_ms": 10.0,
+      "max_ms": 15.1,
+      "mean_ms": 7.6
+    },
+    {
+      "endpoint": "agents summary",
+      "path": "/api/v1/agents/summary",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 6.8,
+      "p50_ms": 18.0,
+      "p95_ms": 22.4,
+      "max_ms": 27.1,
+      "mean_ms": 18.9
+    },
+    {
+      "endpoint": "feature adoption",
+      "path": "/api/v1/features/adoption",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 12.3,
+      "p50_ms": 4.0,
+      "p95_ms": 5.3,
+      "max_ms": 6.4,
+      "mean_ms": 4.2
+    },
+    {
+      "endpoint": "pipeline runs (page of 25)",
+      "path": "/api/v1/pipelines/runs?limit=25",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 19.7,
+      "p50_ms": 4.8,
+      "p95_ms": 6.0,
+      "max_ms": 6.6,
+      "mean_ms": 5.0
+    },
+    {
+      "endpoint": "quality checks",
+      "path": "/api/v1/quality/checks",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 27.0,
+      "p50_ms": 5.3,
+      "p95_ms": 8.1,
+      "max_ms": 27.9,
+      "mean_ms": 5.9
+    },
+    {
+      "endpoint": "catalog models",
+      "path": "/api/v1/catalog/models",
+      "n": 100,
+      "status": [
+        200
+      ],
+      "response_kb": 11.5,
+      "p50_ms": 3.1,
+      "p95_ms": 3.5,
+      "max_ms": 8.9,
+      "mean_ms": 3.2
+    }
+  ],
+  "concurrent": [
+    {
+      "path": "/api/v1/overview",
+      "clients": 20,
+      "requests": 500,
+      "errors": 0,
+      "wall_s": 9.82,
+      "throughput_rps": 50.9,
+      "p50_ms": 335.9,
+      "p95_ms": 434.8,
+      "max_ms": 557.7
+    },
+    {
+      "path": "/api/v1/metrics/timeseries?metric=dau",
+      "clients": 20,
+      "requests": 500,
+      "errors": 0,
+      "wall_s": 3.4,
+      "throughput_rps": 147.1,
+      "p50_ms": 93.2,
+      "p95_ms": 107.6,
+      "max_ms": 133.3
+    }
+  ]
+}
