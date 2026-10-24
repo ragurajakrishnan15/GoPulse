@@ -5,6 +5,8 @@
 # Major versions of libraries are skipped on purpose: upgrade them deliberately, one at a time.
 # Exception: GitHub Actions majors ARE allowed (grouped), because they only change the CI runner, CI validates them, and
 # older action majors get deprecated (e.g. the Node 20 warning), which would eventually break the pipeline.
+# (Groups take every update that survives the `ignore` rule; a minor/patch filter on the group itself did not match Python
+# requirement ranges like ">=3.2,<4" and left those as separate PRs.)
 # Security fixes are separate: GitHub raises security-update PRs regardless of this schedule.
 version: 2
 updates:
@@ -18,7 +20,6 @@ updates:
     groups:
       python-dependencies:
         patterns: ["*"]
-        update-types: [minor, patch]
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -31,7 +32,6 @@ updates:
     groups:
       web-dependencies:
         patterns: ["*"]
-        update-types: [minor, patch]
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -56,7 +56,6 @@ updates:
     groups:
       base-images:
         patterns: ["*"]
-        update-types: [minor, patch]
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
